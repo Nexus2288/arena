@@ -1,0 +1,618 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="utf-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover">
+  <meta name="theme-color" content="#2b1a12">
+  <meta name="robots" content="noindex, nofollow">
+  <meta name="referrer" content="no-referrer">
+  <meta http-equiv="Content-Security-Policy" content="default-src 'none'; script-src 'self'; style-src 'self' https://fonts.googleapis.com; font-src https://fonts.gstatic.com; img-src 'self' https: data:; connect-src https://script.google.com https://script.googleusercontent.com; base-uri 'none'">
+  <title>Owner Dashboard &ndash; Love Over Coffee</title>
+  <link rel="icon" href="data:,">
+  <link rel="preconnect" href="https://fonts.googleapis.com">
+  <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+  <link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700&family=Playfair+Display:wght@600;700&display=swap">
+  <link rel="stylesheet" href="dashboard.css">
+</head>
+<body>
+
+  <noscript>
+    <div class="fatal">
+      <div class="fatal__card">
+        <h2>JavaScript is required</h2>
+        <p>Please enable JavaScript to use the owner dashboard.</p>
+      </div>
+    </div>
+  </noscript>
+
+  <!-- ============ Checking session ============ -->
+  <div id="screenLoading" class="splash">
+    <div class="spinner" aria-hidden="true"></div>
+    <p>Loading dashboard&hellip;</p>
+  </div>
+
+  <!-- ============ Login ============ -->
+  <div id="screenLogin" class="splash" hidden>
+    <form id="loginForm" class="login-card" novalidate>
+      <h1 class="login-card__title">Love Over Coffee</h1>
+      <p class="login-card__sub">Owner dashboard</p>
+      <div class="field">
+        <label for="accessKeyInput">Access key</label>
+        <input id="accessKeyInput" type="password" autocomplete="current-password" required>
+      </div>
+      <p id="loginError" class="form-error" role="alert" hidden></p>
+      <button type="submit" id="loginBtn" class="btn-primary">Log in</button>
+    </form>
+  </div>
+
+  <!-- ============ App ============ -->
+  <div id="app" class="shell" hidden>
+
+    <header class="topbar">
+      <div class="brand">
+        <strong id="cafeNameLabel" class="brand__name">Love Over Coffee</strong>
+        <span class="brand__sub">Owner dashboard</span>
+      </div>
+      <button type="button" id="logoutBtn" class="pill-btn">Log out</button>
+    </header>
+
+    <nav id="tabBar" class="tabbar" aria-label="Dashboard sections">
+      <button type="button" class="tab is-active" data-tab="home">Home</button>
+      <button type="button" class="tab" data-tab="orders">Orders</button>
+      <button type="button" class="tab" data-tab="menu">Menu</button>
+      <button type="button" class="tab" data-tab="coupons">Coupons</button>
+      <button type="button" class="tab" data-tab="tables">Tables</button>
+      <button type="button" class="tab" data-tab="customers">Customers</button>
+      <button type="button" class="tab" data-tab="analytics">Analytics</button>
+      <button type="button" class="tab" data-tab="notifications">Notifications</button>
+      <button type="button" class="tab" data-tab="settings">Settings</button>
+    </nav>
+
+    <main class="content">
+
+      <!-- ================= HOME ================= -->
+      <section id="tabHome" class="tab-panel">
+        <div class="cards-grid" id="homeCards">
+          <div class="stat-card"><small>Today's Orders</small><strong id="statTodayOrders">0</strong></div>
+          <div class="stat-card"><small>Today's Sales</small><strong id="statTodaySales">&ndash;</strong></div>
+          <div class="stat-card"><small>Avg Order Value</small><strong id="statAvgOrder">&ndash;</strong></div>
+          <div class="stat-card"><small>Active Orders</small><strong id="statActiveOrders">0</strong></div>
+          <div class="stat-card"><small>New</small><strong id="statNewOrders">0</strong></div>
+          <div class="stat-card"><small>Preparing</small><strong id="statPreparingOrders">0</strong></div>
+          <div class="stat-card"><small>Completed Today</small><strong id="statCompletedToday">0</strong></div>
+          <div class="stat-card"><small>Cancelled Today</small><strong id="statCancelledToday">0</strong></div>
+          <div class="stat-card"><small>Total Customers</small><strong id="statTotalCustomers">0</strong></div>
+          <div class="stat-card"><small>Active Tables</small><strong id="statActiveTables">0</strong></div>
+        </div>
+
+        <div class="panel-head">
+          <h2>Recent orders</h2>
+          <button type="button" id="homeRefreshBtn" class="btn-outline btn-outline--small">Refresh</button>
+        </div>
+        <div class="table-wrap">
+          <table class="data-table">
+            <thead>
+              <tr><th>Order</th><th>Table</th><th>Customer</th><th>Total</th><th>Status</th><th>Time</th><th>Actions</th></tr>
+            </thead>
+            <tbody id="homeRecentOrdersBody"></tbody>
+          </table>
+          <p id="homeRecentEmpty" class="empty" hidden>No orders yet.</p>
+        </div>
+      </section>
+
+      <!-- ================= ORDERS ================= -->
+      <section id="tabOrders" class="tab-panel" hidden>
+        <div class="filter-bar">
+          <select id="ordersStatusFilter">
+            <option value="">All statuses</option>
+            <option value="NEW">New</option>
+            <option value="PREPARING">Preparing</option>
+            <option value="COMPLETED">Completed</option>
+            <option value="CANCELLED">Cancelled</option>
+          </select>
+          <input type="date" id="ordersDateFrom" aria-label="From date">
+          <input type="date" id="ordersDateTo" aria-label="To date">
+          <input type="number" id="ordersLimit" min="1" max="500" value="100" aria-label="Limit" title="Max orders to show">
+          <button type="button" id="ordersFilterBtn" class="btn-primary btn-primary--small">Apply</button>
+          <button type="button" id="ordersResetBtn" class="btn-outline btn-outline--small">Reset</button>
+        </div>
+        <div class="table-wrap">
+          <table class="data-table">
+            <thead>
+              <tr><th>Order</th><th>Date/Time</th><th>Table</th><th>Customer</th><th>Mobile</th><th>Total</th><th>Status</th><th>Actions</th></tr>
+            </thead>
+            <tbody id="ordersBody"></tbody>
+          </table>
+          <p id="ordersEmpty" class="empty" hidden>No orders match these filters.</p>
+        </div>
+      </section>
+
+      <!-- ================= MENU ================= -->
+      <section id="tabMenu" class="tab-panel" hidden>
+        <div class="panel-head">
+          <h2>Menu items</h2>
+          <button type="button" id="menuAddBtn" class="btn-primary btn-primary--small">+ Add item</button>
+        </div>
+        <div class="table-wrap">
+          <table class="data-table">
+            <thead>
+              <tr><th>Name</th><th>Category</th><th>Price</th><th>Veg</th><th>Available</th><th>Actions</th></tr>
+            </thead>
+            <tbody id="menuBody"></tbody>
+          </table>
+          <p id="menuEmpty" class="empty" hidden>No menu items yet.</p>
+        </div>
+      </section>
+
+      <!-- ================= COUPONS ================= -->
+      <section id="tabCoupons" class="tab-panel" hidden>
+        <div class="panel-head">
+          <h2>Coupons</h2>
+          <button type="button" id="couponAddBtn" class="btn-primary btn-primary--small">+ Add coupon</button>
+        </div>
+        <div class="table-wrap">
+          <table class="data-table">
+            <thead>
+              <tr><th>Code</th><th>Range</th><th>Discount</th><th>Active</th><th>Used</th><th>Total discount</th><th>Actions</th></tr>
+            </thead>
+            <tbody id="couponsBody"></tbody>
+          </table>
+          <p id="couponsEmpty" class="empty" hidden>No coupons yet.</p>
+        </div>
+      </section>
+
+      <!-- ================= TABLES ================= -->
+      <section id="tabTables" class="tab-panel" hidden>
+        <div class="panel-head">
+          <h2>Tables</h2>
+          <button type="button" id="tableAddBtn" class="btn-primary btn-primary--small">+ Add table</button>
+        </div>
+        <div class="table-wrap">
+          <table class="data-table">
+            <thead>
+              <tr><th>Number</th><th>Name</th><th>QR link</th><th>Active</th><th>Actions</th></tr>
+            </thead>
+            <tbody id="tablesBody"></tbody>
+          </table>
+          <p id="tablesEmpty" class="empty" hidden>No tables yet.</p>
+        </div>
+      </section>
+
+      <!-- ================= CUSTOMERS ================= -->
+      <section id="tabCustomers" class="tab-panel" hidden>
+        <div class="filter-bar">
+          <input type="search" id="customersSearch" placeholder="Search name, mobile or ID&hellip;">
+        </div>
+        <div class="selection-bar" id="customersSelectionBar" hidden>
+          <span id="customersSelectedCount">0 selected</span>
+          <button type="button" id="customersNotifyBtn" class="btn-primary btn-primary--small">Notify selected</button>
+          <button type="button" id="customersClearSelectionBtn" class="btn-outline btn-outline--small">Clear</button>
+        </div>
+        <div class="table-wrap">
+          <table class="data-table">
+            <thead>
+              <tr>
+                <th></th><th>Name</th><th>Mobile</th><th>Orders</th><th>Total spent</th>
+                <th>Last seen</th><th>Notifications</th>
+              </tr>
+            </thead>
+            <tbody id="customersBody"></tbody>
+          </table>
+          <p id="customersEmpty" class="empty" hidden>No customers yet.</p>
+        </div>
+      </section>
+
+      <!-- ================= ANALYTICS ================= -->
+      <section id="tabAnalytics" class="tab-panel" hidden>
+        <div class="filter-bar">
+          <select id="analyticsRange">
+            <option value="daily">Daily</option>
+            <option value="weekly">Weekly</option>
+            <option value="monthly">Monthly</option>
+            <option value="custom">Custom range</option>
+          </select>
+          <input type="date" id="analyticsDate">
+          <input type="date" id="analyticsDateFrom" hidden>
+          <input type="date" id="analyticsDateTo" hidden>
+          <button type="button" id="analyticsApplyBtn" class="btn-primary btn-primary--small">Apply</button>
+        </div>
+
+        <div class="cards-grid">
+          <div class="stat-card"><small>Sales</small><strong id="analyticsSales">&ndash;</strong></div>
+          <div class="stat-card"><small>Orders</small><strong id="analyticsOrders">0</strong></div>
+          <div class="stat-card"><small>Avg Order Value</small><strong id="analyticsAvg">&ndash;</strong></div>
+          <div class="stat-card"><small>Discount Given</small><strong id="analyticsDiscount">&ndash;</strong></div>
+        </div>
+
+        <h2>Sales by day</h2>
+        <div class="table-wrap">
+          <table class="data-table">
+            <thead><tr><th>Date</th><th>Orders</th><th>Sales</th></tr></thead>
+            <tbody id="analyticsSeriesBody"></tbody>
+          </table>
+        </div>
+
+        <h2>Top items</h2>
+        <div class="table-wrap">
+          <table class="data-table">
+            <thead><tr><th>Item</th><th>Quantity</th><th>Revenue</th></tr></thead>
+            <tbody id="analyticsTopItemsBody"></tbody>
+          </table>
+          <p id="analyticsTopItemsEmpty" class="empty" hidden>No sales in this range.</p>
+        </div>
+      </section>
+
+      <!-- ================= NOTIFICATIONS ================= -->
+      <section id="tabNotifications" class="tab-panel" hidden>
+        <h2>Send a notification</h2>
+        <form id="notifyForm" class="card-form" novalidate>
+          <div class="field">
+            <label for="notifyTitle">Title</label>
+            <input id="notifyTitle" maxlength="80" required>
+          </div>
+          <div class="field">
+            <label for="notifyMessage">Message</label>
+            <textarea id="notifyMessage" rows="3" maxlength="300" required></textarea>
+          </div>
+          <div class="field">
+            <label for="notifyImageUrl">Image URL <span class="optional">(optional)</span></label>
+            <input id="notifyImageUrl" type="url" maxlength="500">
+          </div>
+          <div class="field-row">
+            <div class="field">
+              <label for="notifyButtonText">Button text <span class="optional">(optional)</span></label>
+              <input id="notifyButtonText" maxlength="30">
+            </div>
+            <div class="field">
+              <label for="notifyButtonLink">Button link <span class="optional">(optional)</span></label>
+              <input id="notifyButtonLink" type="url" maxlength="500">
+            </div>
+          </div>
+          <div class="field">
+            <label for="notifyAudience">Audience</label>
+            <select id="notifyAudience">
+              <option value="ALL">All subscribed customers</option>
+              <option value="RECENT">Recently active customers</option>
+              <option value="SELECTED">Selected customers</option>
+            </select>
+          </div>
+          <div class="field" id="notifyRecentDaysField" hidden>
+            <label for="notifyRecentDays">Active within (days)</label>
+            <input id="notifyRecentDays" type="number" min="1" max="365" value="30">
+          </div>
+          <div class="field" id="notifySelectedField" hidden>
+            <p id="notifySelectedSummary" class="field-msg">0 customers selected. Select customers from the Customers tab.</p>
+          </div>
+          <p id="notifyError" class="form-error" role="alert" hidden></p>
+          <button type="submit" id="notifySendBtn" class="btn-primary">Send notification</button>
+        </form>
+
+        <h2>History</h2>
+        <div class="table-wrap">
+          <table class="data-table">
+            <thead><tr><th>Title</th><th>Audience</th><th>Recipients</th><th>Sent</th></tr></thead>
+            <tbody id="notificationsHistoryBody"></tbody>
+          </table>
+          <p id="notificationsEmpty" class="empty" hidden>No notifications sent yet.</p>
+        </div>
+      </section>
+
+      <!-- ================= SETTINGS ================= -->
+      <section id="tabSettings" class="tab-panel" hidden>
+        <h2>Cafe details</h2>
+        <form id="settingsForm" class="card-form" novalidate>
+          <div class="field">
+            <label for="settingCafeName">Cafe name</label>
+            <input id="settingCafeName" maxlength="60" required>
+          </div>
+          <div class="field">
+            <label for="settingTagline">Tagline</label>
+            <input id="settingTagline" maxlength="120" required>
+          </div>
+          <div class="field">
+            <label for="settingAbout">About us</label>
+            <textarea id="settingAbout" rows="5" maxlength="1000" required></textarea>
+          </div>
+          <div class="field">
+            <label for="settingReviewUrl">Google review link</label>
+            <input id="settingReviewUrl" type="url" maxlength="500">
+          </div>
+          <div class="field">
+            <label for="settingInstagram">Instagram link</label>
+            <input id="settingInstagram" type="url" maxlength="500">
+          </div>
+          <div class="field">
+            <label for="settingFacebook">Facebook link</label>
+            <input id="settingFacebook" type="url" maxlength="500">
+          </div>
+          <div class="field">
+            <label for="settingYoutube">YouTube link</label>
+            <input id="settingYoutube" type="url" maxlength="500">
+          </div>
+          <div class="field">
+            <label for="settingX">X (Twitter) link</label>
+            <input id="settingX" type="url" maxlength="500">
+          </div>
+          <p id="settingsError" class="form-error" role="alert" hidden></p>
+          <p id="settingsSuccess" class="field-msg is-ok" role="status" hidden></p>
+          <button type="submit" id="settingsSaveBtn" class="btn-primary">Save settings</button>
+        </form>
+
+        <h2>System info</h2>
+        <dl class="info-list">
+          <div><dt>Currency</dt><dd id="infoCurrency">&ndash;</dd></div>
+          <div><dt>Timezone</dt><dd id="infoTimezone">&ndash;</dd></div>
+          <div><dt>Customer site URL</dt><dd id="infoWebAppUrl">&ndash;</dd></div>
+          <div><dt>Cafe email</dt><dd id="infoCafeEmail">&ndash;</dd></div>
+          <div><dt>Push notifications</dt><dd id="infoPushConfigured">&ndash;</dd></div>
+          <div><dt>Customer order window</dt><dd id="infoOrderHours">&ndash;</dd></div>
+        </dl>
+      </section>
+
+    </main>
+  </div>
+
+  <!-- ============ Order items modal ============ -->
+  <div id="orderModal" class="modal" role="dialog" aria-modal="true" hidden>
+    <div class="modal__backdrop" data-close-modal></div>
+    <div class="modal__sheet">
+      <button type="button" class="modal__close" data-close-modal aria-label="Close">&times;</button>
+      <h2 id="orderModalTitle">Order</h2>
+      <dl class="info-list">
+        <div><dt>Customer</dt><dd id="orderModalCustomer">&ndash;</dd></div>
+        <div><dt>Mobile</dt><dd id="orderModalMobile">&ndash;</dd></div>
+        <div><dt>Table</dt><dd id="orderModalTable">&ndash;</dd></div>
+        <div><dt>Placed at</dt><dd id="orderModalTime">&ndash;</dd></div>
+      </dl>
+      <div id="orderModalSpecialBox" class="notice" hidden>
+        <strong>Special instructions</strong>
+        <p id="orderModalSpecial"></p>
+      </div>
+      <table class="data-table">
+        <thead><tr><th>Item</th><th>Qty</th><th>Price</th><th>Total</th></tr></thead>
+        <tbody id="orderModalItemsBody"></tbody>
+      </table>
+      <dl class="info-list">
+        <div><dt>Subtotal</dt><dd id="orderModalSubtotal">&ndash;</dd></div>
+        <div id="orderModalDiscountRow" hidden><dt id="orderModalDiscountLabel">Discount</dt><dd id="orderModalDiscount">&ndash;</dd></div>
+        <div><dt>Total</dt><dd id="orderModalTotal">&ndash;</dd></div>
+      </dl>
+      <div class="modal-actions" id="orderModalActions"></div>
+    </div>
+  </div>
+
+  <!-- ============ Menu item modal ============ -->
+  <div id="menuModal" class="modal" role="dialog" aria-modal="true" hidden>
+    <div class="modal__backdrop" data-close-modal></div>
+    <div class="modal__sheet">
+      <button type="button" class="modal__close" data-close-modal aria-label="Close">&times;</button>
+      <h2 id="menuModalTitle">Add item</h2>
+      <form id="menuForm" class="card-form" novalidate>
+        <input type="hidden" id="menuItemId">
+        <div class="field">
+          <label for="menuItemName">Item name</label>
+          <input id="menuItemName" maxlength="80" required>
+        </div>
+        <div class="field">
+          <label for="menuItemCategory">Category</label>
+          <input id="menuItemCategory" maxlength="40" required>
+        </div>
+        <div class="field-row">
+          <div class="field">
+            <label for="menuItemPrice">Price</label>
+            <input id="menuItemPrice" type="number" min="0.01" step="0.01" required>
+          </div>
+          <div class="field">
+            <label for="menuItemVeg">Veg status</label>
+            <select id="menuItemVeg">
+              <option value="VEG">Veg</option>
+              <option value="NON_VEG">Non-Veg</option>
+            </select>
+          </div>
+        </div>
+        <div class="field">
+          <label for="menuItemTag">Tag <span class="optional">(optional)</span></label>
+          <input id="menuItemTag" maxlength="24" placeholder="Bestseller, New&hellip;">
+        </div>
+        <div class="field">
+          <label for="menuItemTagline">Tagline <span class="optional">(optional)</span></label>
+          <input id="menuItemTagline" maxlength="120">
+        </div>
+        <label class="checkbox-field">
+          <input type="checkbox" id="menuItemAvailable" checked>
+          <span>Available</span>
+        </label>
+        <p id="menuFormError" class="form-error" role="alert" hidden></p>
+        <button type="submit" id="menuFormSaveBtn" class="btn-primary">Save item</button>
+      </form>
+    </div>
+  </div>
+
+  <!-- ============ Coupon modal ============ -->
+  <div id="couponModal" class="modal" role="dialog" aria-modal="true" hidden>
+    <div class="modal__backdrop" data-close-modal></div>
+    <div class="modal__sheet">
+      <button type="button" class="modal__close" data-close-modal aria-label="Close">&times;</button>
+      <h2 id="couponModalTitle">Add coupon</h2>
+      <form id="couponForm" class="card-form" novalidate>
+        <input type="hidden" id="couponIsNew" value="true">
+        <div class="field">
+          <label for="couponFormCode">Coupon code</label>
+          <input id="couponFormCode" maxlength="20" style="text-transform:uppercase" required>
+        </div>
+        <div class="field">
+          <label for="couponFormDescription">Description</label>
+          <input id="couponFormDescription" maxlength="120">
+        </div>
+        <div class="field-row">
+          <div class="field">
+            <label for="couponFormMin">Minimum order</label>
+            <input id="couponFormMin" type="number" min="0" step="1" required>
+          </div>
+          <div class="field">
+            <label for="couponFormMax">Maximum order <span class="optional">(blank = no limit)</span></label>
+            <input id="couponFormMax" type="number" min="0" step="1">
+          </div>
+        </div>
+        <div class="field">
+          <label for="couponFormPercent">Discount %</label>
+          <input id="couponFormPercent" type="number" min="0.01" max="90" step="0.01" required>
+        </div>
+        <label class="checkbox-field">
+          <input type="checkbox" id="couponFormActive" checked>
+          <span>Active</span>
+        </label>
+        <p id="couponFormError" class="form-error" role="alert" hidden></p>
+        <button type="submit" id="couponFormSaveBtn" class="btn-primary">Save coupon</button>
+      </form>
+    </div>
+  </div>
+
+  <!-- ============ Table modal ============ -->
+  <div id="tableModal" class="modal" role="dialog" aria-modal="true" hidden>
+    <div class="modal__backdrop" data-close-modal></div>
+    <div class="modal__sheet">
+      <button type="button" class="modal__close" data-close-modal aria-label="Close">&times;</button>
+      <h2 id="tableModalTitle">Add table</h2>
+      <form id="tableForm" class="card-form" novalidate>
+        <input type="hidden" id="tableFormId">
+        <div class="field">
+          <label for="tableFormNumber">Table number</label>
+          <input id="tableFormNumber" maxlength="12" required>
+        </div>
+        <div class="field">
+          <label for="tableFormName">Table name <span class="optional">(optional)</span></label>
+          <input id="tableFormName" maxlength="40">
+        </div>
+        <label class="checkbox-field">
+          <input type="checkbox" id="tableFormActive" checked>
+          <span>Active</span>
+        </label>
+        <p id="tableFormError" class="form-error" role="alert" hidden></p>
+        <button type="submit" id="tableFormSaveBtn" class="btn-primary">Save table</button>
+      </form>
+    </div>
+  </div>
+
+  <!-- ============ Generic confirm modal ============ -->
+  <div id="confirmModal" class="modal" role="dialog" aria-modal="true" hidden>
+    <div class="modal__backdrop" data-close-modal></div>
+    <div class="modal__sheet modal__sheet--confirm">
+      <h2 id="confirmTitle">Are you sure?</h2>
+      <p id="confirmMessage"></p>
+      <div class="modal-actions">
+        <button type="button" id="confirmCancelBtn" class="btn-outline">Cancel</button>
+        <button type="button" id="confirmOkBtn" class="btn-primary">Confirm</button>
+      </div>
+    </div>
+  </div>
+
+  <div id="toastHost" class="toast-host" aria-live="polite"></div>
+
+  <!-- ============ Templates ============ -->
+  <template id="tplOrderRow">
+    <tr>
+      <td data-role="orderId"></td>
+      <td data-role="table"></td>
+      <td data-role="customer"></td>
+      <td data-role="total"></td>
+      <td><span class="status-pill" data-role="statusPill"></span></td>
+      <td data-role="time"></td>
+      <td class="row-actions" data-role="actions"></td>
+    </tr>
+  </template>
+
+  <template id="tplOrderLineRow">
+    <tr>
+      <td data-role="name"></td>
+      <td data-role="qty"></td>
+      <td data-role="price"></td>
+      <td data-role="total"></td>
+    </tr>
+  </template>
+
+  <template id="tplMenuRow">
+    <tr>
+      <td data-role="name"></td>
+      <td data-role="category"></td>
+      <td data-role="price"></td>
+      <td><span class="veg-mark" data-role="vegMark" role="img"><i></i></span></td>
+      <td><label class="switch"><input type="checkbox" data-role="availableToggle"><span></span></label></td>
+      <td class="row-actions">
+        <button type="button" class="link-btn link-btn--strong" data-role="editBtn">Edit</button>
+        <button type="button" class="link-btn" data-role="deleteBtn">Delete</button>
+      </td>
+    </tr>
+  </template>
+
+  <template id="tplCouponRow">
+    <tr>
+      <td data-role="code"></td>
+      <td data-role="range"></td>
+      <td data-role="discount"></td>
+      <td><label class="switch"><input type="checkbox" data-role="activeToggle"><span></span></label></td>
+      <td data-role="usageCount"></td>
+      <td data-role="totalDiscount"></td>
+      <td class="row-actions">
+        <button type="button" class="link-btn link-btn--strong" data-role="editBtn">Edit</button>
+      </td>
+    </tr>
+  </template>
+
+  <template id="tplTableRow">
+    <tr>
+      <td data-role="number"></td>
+      <td data-role="name"></td>
+      <td class="qr-cell">
+        <input type="text" class="qr-input" data-role="qrUrl" readonly>
+        <button type="button" class="link-btn link-btn--strong" data-role="copyBtn">Copy</button>
+        <button type="button" class="link-btn" data-role="regenBtn">New QR</button>
+      </td>
+      <td><label class="switch"><input type="checkbox" data-role="activeToggle"><span></span></label></td>
+      <td class="row-actions">
+        <button type="button" class="link-btn link-btn--strong" data-role="editBtn">Edit</button>
+      </td>
+    </tr>
+  </template>
+
+  <template id="tplCustomerRow">
+    <tr>
+      <td><input type="checkbox" data-role="selectBox"></td>
+      <td data-role="name"></td>
+      <td data-role="mobile"></td>
+      <td data-role="orders"></td>
+      <td data-role="totalSpent"></td>
+      <td data-role="lastSeen"></td>
+      <td data-role="notifAllowed"></td>
+    </tr>
+  </template>
+
+  <template id="tplNotificationRow">
+    <tr>
+      <td data-role="title"></td>
+      <td data-role="audience"></td>
+      <td data-role="recipients"></td>
+      <td data-role="createdAt"></td>
+    </tr>
+  </template>
+
+  <template id="tplSeriesRow">
+    <tr>
+      <td data-role="date"></td>
+      <td data-role="orders"></td>
+      <td data-role="sales"></td>
+    </tr>
+  </template>
+
+  <template id="tplTopItemRow">
+    <tr>
+      <td data-role="name"></td>
+      <td data-role="qty"></td>
+      <td data-role="revenue"></td>
+    </tr>
+  </template>
+
+  <script src="frontend-config.js"></script>
+  <script src="dashboard.js" defer></script>
+</body>
+</html>
