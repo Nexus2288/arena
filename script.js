@@ -1,594 +1,1059 @@
-/* =========================================================
-   script.js — Customer site (Part 9)  [ASSUMPTION BUILD]
-   Mismatch ho to sirf neeche ka block "A" edit karo.
-   Test: browser console mein  __diag()
-   ========================================================= */
+/**
+ * script.js
+ * Customer site logic for Love Over Coffee.
+ * Talks ONLY to the Apps Script backend via window.LOC_CONFIG.API_URL.
+ *
+ * NOTE: Notifications.gs source was not available while writing this file.
+ * The notification subscribe/poll section below is marked with ASSUMPTION
+ * comments and must be re-checked once that file is shared.
+ */
+'use strict';
+
 (function () {
-  'use strict';
+  const API_URL = (window.LOC_CONFIG && window.LOC_CONFIG.API_URL) || '';
+  const CUSTOMER_KEY_STORAGE = 'loc_customer_key';
+  const SEEN_NOTIF_STORAGE = 'loc_seen_notifications';
+  const NOTIF_OPT_STORAGE = 'loc_notif_opted';
 
-  /* ================= 1. ASSUMPTIONS (sirf yahan edit) ================= */
-  const A = {
-    actions: {
-      publicConfig:   'getPublicConfig',
-      menu:           'getMenu',
-      resolveTable:   'resolveTable',
-      validateCoupon: 'validateCoupon',
-      createOrder:    'createOrder',
-      trackOrder:     'trackOrder'
-    },
-    // request param names
-    params: {
-      tableToken: 'token',        // resolveTable?token=...
-      trackOrderId: 'orderId',    // trackOrder?orderId=...&trackingToken=...
-      trackToken: 'trackingToken'
-    },
-    urlTableParam: 't',           // site?t=TOKEN
-    // element IDs in index.html
-    ids: {
-      restaurantName: 'restaurantName',
-      tableLabel:     'tableLabel',
-      statusBanner:   'statusBanner',
-      searchInput:    'searchInput',
-      categoryTabs:   'categoryTabs',
-      menuList:       'menuList',
-      cartBar:        'cartBar',
-      cartCount:      'cartCount',
-      cartTotal:      'cartTotal',
-      openCartBtn:    'openCartBtn',
-      cartModal:      'cartModal',
-      closeCartBtn:   'closeCartBtn',
-      cartItems:      'cartItems',
-      couponInput:    'couponInput',
-      applyCouponBtn: 'applyCouponBtn',
-      couponMsg:      'couponMsg',
-      subtotal:       'subtotal',
-      discount:       'discount',
-      grandTotal:     'grandTotal',
-      customerName:   'customerName',
-      customerPhone:  'customerPhone',
-      orderNote:      'orderNote',
-      placeOrderBtn:  'placeOrderBtn',
-      trackModal:     'trackModal',
-      trackBody:      'trackBody',
-      closeTrackBtn:  'closeTrackBtn',
-      toast:          'toast'
-    },
-    // diag in IDs ko "optional" maanega (missing ho to warning, error nahi)
-    optionalIds: ['statusBanner', 'searchInput', 'customerName', 'customerPhone', 'orderNote', 'couponInput', 'applyCouponBtn', 'couponMsg', 'discount'],
-    classes: { hidden: 'hidden', open: '' },   // open: agar CSS .open/.show use karta hai to yahan likho
-    phoneRegex: /^\d{10}$/,
-    pollMs: 8000,
-    timeoutMs: 20000,
-    // status normalisation: backend ka status (lowercase) -> step key
-    statusMap: {
-      new: 'placed', placed: 'placed', pending: 'placed', received: 'placed',
-      accepted: 'accepted', confirmed: 'accepted',
-      preparing: 'preparing', cooking: 'preparing',
-      ready: 'ready',
-      served: 'served', completed: 'served', delivered: 'served', done: 'served',
-      rejected: 'rejected', cancelled: 'rejected', canceled: 'rejected'
-    },
-    steps: [
-      { key: 'placed',    label: 'Order received' },
-      { key: 'accepted',  label: 'Accepted' },
-      { key: 'preparing', label: 'Preparing' },
-      { key: 'ready',     label: 'Ready' },
-      { key: 'served',    label: 'Served' }
-    ],
-    terminal: ['served', 'rejected']
+  /* ---------------- DOM shortcuts ---------------- */
+  const $ = (id) => document.getElementById(id);
+  const qAll = (sel, ctx) => Array.from((ctx || document).querySelectorAll(sel));
+
+  const el = {
+    screenLoading: $('screenLoading'),
+    screenError: $('screenError'),
+    errorTitle: $('errorTitle'),
+    errorMessage: $('errorMessage'),
+    errorRetryBtn: $('errorRetryBtn'),
+    app: $('app'),
+    cafeLogo: $('cafeLogo'),
+    cafeName: $('cafeName'),
+    cafeTagline: $('cafeTagline'),
+    tableBadge: $('tableBadge'),
+    tableNumber: $('tableNumber'),
+    aboutBtn: $('aboutBtn'),
+    viewMenu: $('viewMenu'),
+    heroSection: $('heroSection'),
+    heroImage: $('heroImage'),
+    heroTableText: $('heroTableText'),
+    activeOrderBanner: $('activeOrderBanner'),
+    activeOrderTitle: $('activeOrderTitle'),
+    activeOrderSub: $('activeOrderSub'),
+    notifyCard: $('notifyCard'),
+    notifyText: $('notifyText'),
+    notifyBtn: $('notifyBtn'),
+    searchInput: $('searchInput'),
+    searchClearBtn: $('searchClearBtn'),
+    categoryBar: $('categoryBar'),
+    vegOnlyToggle: $('vegOnlyToggle'),
+    menuList: $('menuList'),
+    menuEmpty: $('menuEmpty'),
+    menuEmptyText: $('menuEmptyText'),
+    viewCart: $('viewCart'),
+    cartBackBtn: $('cartBackBtn'),
+    cartTableNumber: $('cartTableNumber'),
+    cartItems: $('cartItems'),
+    cartEmpty: $('cartEmpty'),
+    cartAddMoreBtn: $('cartAddMoreBtn'),
+    clearCartBtn: $('clearCartBtn'),
+    orderForm: $('orderForm'),
+    customerName: $('customerName'),
+    customerNameError: $('customerNameError'),
+    customerMobile: $('customerMobile'),
+    customerMobileError: $('customerMobileError'),
+    formTable: $('formTable'),
+    specialRequest: $('specialRequest'),
+    specialCount: $('specialCount'),
+    couponCode: $('couponCode'),
+    applyCouponBtn: $('applyCouponBtn'),
+    removeCouponBtn: $('removeCouponBtn'),
+    couponMessage: $('couponMessage'),
+    couponTiersTitle: $('couponTiersTitle'),
+    couponTiers: $('couponTiers'),
+    sumSubtotal: $('sumSubtotal'),
+    sumDiscountRow: $('sumDiscountRow'),
+    sumDiscountLabel: $('sumDiscountLabel'),
+    sumDiscount: $('sumDiscount'),
+    sumTotal: $('sumTotal'),
+    formError: $('formError'),
+    checkoutBar: $('checkoutBar'),
+    checkoutTotal: $('checkoutTotal'),
+    placeOrderBtn: $('placeOrderBtn'),
+    viewTrack: $('viewTrack'),
+    trackBackBtn: $('trackBackBtn'),
+    trackTableNumber: $('trackTableNumber'),
+    trackSuccess: $('trackSuccess'),
+    trackOrderId: $('trackOrderId'),
+    trackTime: $('trackTime'),
+    trackSteps: $('trackSteps'),
+    trackStatusText: $('trackStatusText'),
+    trackStatusUpdated: $('trackStatusUpdated'),
+    trackCancelled: $('trackCancelled'),
+    trackItems: $('trackItems'),
+    trackSubtotal: $('trackSubtotal'),
+    trackDiscountRow: $('trackDiscountRow'),
+    trackDiscountLabel: $('trackDiscountLabel'),
+    trackDiscount: $('trackDiscount'),
+    trackTotal: $('trackTotal'),
+    trackSpecialBox: $('trackSpecialBox'),
+    trackSpecial: $('trackSpecial'),
+    trackRefreshBtn: $('trackRefreshBtn'),
+    newOrderBtn: $('newOrderBtn'),
+    trackHint: $('trackHint'),
+    cartBar: $('cartBar'),
+    viewCartBtn: $('viewCartBtn'),
+    cartBarCount: $('cartBarCount'),
+    cartBarTotal: $('cartBarTotal'),
+    aboutModal: $('aboutModal'),
+    aboutLogo: $('aboutLogo'),
+    aboutName: $('aboutName'),
+    aboutTagline: $('aboutTagline'),
+    aboutText: $('aboutText'),
+    aboutReviewBtn: $('aboutReviewBtn'),
+    aboutInstagram: $('aboutInstagram'),
+    aboutFacebook: $('aboutFacebook'),
+    aboutYoutube: $('aboutYoutube'),
+    aboutX: $('aboutX'),
+    notifModal: $('notifModal'),
+    notifImage: $('notifImage'),
+    notifTitle: $('notifTitle'),
+    notifMessage: $('notifMessage'),
+    notifLink: $('notifLink'),
+    toastHost: $('toastHost')
   };
 
-  /* ================= 2. HELPERS ================= */
-  const $ = (key) => document.getElementById(A.ids[key]);
-  const esc = (s) => String(s == null ? '' : s).replace(/[&<>"']/g, (c) =>
-    ({ '&': '&amp;', '<': '&lt;', '>': '&gt;', '"': '&quot;', "'": '&#39;' }[c]));
-  const num = (v, d = 0) => { const n = Number(v); return isFinite(n) ? n : d; };
-  const uid = () => 'r' + Date.now().toString(36) + Math.random().toString(36).slice(2, 8);
-
-  function show(node, on) {
-    if (!node) return;
-    node.classList.toggle(A.classes.hidden, !on);
-    if (A.classes.open) node.classList.toggle(A.classes.open, on);
-  }
-
-  let toastTimer;
-  function toast(msg) {
-    const t = $('toast');
-    if (!t) { alert(msg); return; }
-    t.textContent = msg;
-    show(t, true);
-    clearTimeout(toastTimer);
-    toastTimer = setTimeout(() => show(t, false), 3000);
-  }
-
-  function getApiUrl() {
-    return (window.APP_CONFIG && window.APP_CONFIG.API_URL) ||
-           window.API_URL ||
-           (window.FRONTEND_CONFIG && window.FRONTEND_CONFIG.API_URL) || '';
-  }
-
-  const store = {
-    get(k, d) { try { const v = localStorage.getItem(k); return v ? JSON.parse(v) : d; } catch (e) { return d; } },
-    set(k, v) { try { localStorage.setItem(k, JSON.stringify(v)); } catch (e) {} },
-    del(k) { try { localStorage.removeItem(k); } catch (e) {} }
+  const tpl = {
+    chip: $('tplChip'),
+    category: $('tplCategory'),
+    menuCard: $('tplMenuCard'),
+    cartLine: $('tplCartLine'),
+    trackLine: $('tplTrackLine'),
+    tier: $('tplTier')
   };
 
-  /* ================= 3. API ADAPTER ================= */
-  function unwrap(res) {
-    if (!res || typeof res !== 'object') throw new Error('Invalid server response');
-    if (res.ok === false || res.success === false || res.error) {
-      const e = new Error(res.error || res.message || 'Request failed');
-      e.code = res.code; e.raw = res;
-      throw e;
-    }
-    return res.data !== undefined ? res.data : res;
+  function cloneTpl(t) {
+    return t.content.firstElementChild.cloneNode(true);
+  }
+  function role(root, name) {
+    return root.querySelector('[data-role="' + name + '"]');
   }
 
-  async function request(url, opts) {
-    const ctrl = new AbortController();
-    const to = setTimeout(() => ctrl.abort(), A.timeoutMs);
-    try {
-      const r = await fetch(url, Object.assign({ signal: ctrl.signal }, opts));
-      const text = await r.text();
-      let json;
-      try { json = JSON.parse(text); }
-      catch (e) { throw new Error('Server ne JSON nahi diya (Web App access/deploy check karo)'); }
-      return unwrap(json);
-    } catch (e) {
-      if (e.name === 'AbortError') throw new Error('Server slow hai, dobara try karo');
-      throw e;
-    } finally { clearTimeout(to); }
-  }
-
-  const api = {
-    get(action, params) {
-      const base = getApiUrl();
-      if (!base) throw new Error('API_URL set nahi hai (frontend-config.js)');
-      const q = new URLSearchParams(Object.assign({ action }, params || {}));
-      return request(base + (base.includes('?') ? '&' : '?') + q.toString());
-    },
-    post(action, body) {
-      const base = getApiUrl();
-      if (!base) throw new Error('API_URL set nahi hai (frontend-config.js)');
-      return request(base, {
-        method: 'POST',
-        headers: { 'Content-Type': 'text/plain;charset=utf-8' },   // preflight avoid
-        body: JSON.stringify(Object.assign({ action }, body || {}))
-      });
-    }
-  };
-
-  /* ================= 4. NORMALISERS (field-name tolerance) ================= */
-  const pick = (o, keys, d) => { for (const k of keys) if (o && o[k] !== undefined && o[k] !== null && o[k] !== '') return o[k]; return d; };
-
-  function normConfig(c) {
-    c = c || {};
-    return {
-      name: pick(c, ['restaurantName', 'name', 'cafeName'], 'Restaurant'),
-      currency: pick(c, ['currency', 'currencySymbol'], '₹'),
-      open: pick(c, ['ordersOpen', 'isOpen', 'acceptingOrders', 'open'], true) !== false &&
-            String(pick(c, ['ordersOpen', 'isOpen', 'acceptingOrders', 'open'], true)).toLowerCase() !== 'false',
-      message: pick(c, ['closedMessage', 'message', 'notice'], '')
-    };
-  }
-
-  function normItem(i) {
-    const avail = pick(i, ['available', 'isAvailable', 'inStock', 'active'], true);
-    return {
-      id: String(pick(i, ['id', 'itemId', 'item_id', 'ItemID'], '')),
-      name: String(pick(i, ['name', 'itemName', 'title'], 'Item')),
-      price: num(pick(i, ['price', 'rate', 'amount'], 0)),
-      category: String(pick(i, ['category', 'categoryName', 'cat'], 'Menu')),
-      desc: String(pick(i, ['description', 'desc'], '')),
-      veg: pick(i, ['veg', 'isVeg'], null),
-      image: String(pick(i, ['image', 'imageUrl', 'photo'], '')),
-      available: !(avail === false || String(avail).toLowerCase() === 'false' || String(avail).toLowerCase() === 'no')
-    };
-  }
-
-  function normMenu(d) {
-    const arr = Array.isArray(d) ? d : (d && (d.items || d.menu)) || [];
-    return arr.map(normItem).filter((x) => x.id);
-  }
-
-  function normOrder(o) {
-    o = o || {};
-    const raw = String(pick(o, ['status', 'orderStatus'], 'placed')).toLowerCase();
-    return {
-      id: String(pick(o, ['orderId', 'id', 'order_id'], '')),
-      status: A.statusMap[raw] || 'placed',
-      rawStatus: raw,
-      total: num(pick(o, ['total', 'grandTotal', 'amount'], 0)),
-      eta: pick(o, ['eta', 'etaMinutes', 'prepTime'], ''),
-      reason: pick(o, ['reason', 'rejectReason', 'note'], '')
-    };
-  }
-
-  /* ================= 5. STATE ================= */
-  const S = {
-    cfg: normConfig({}),
-    token: '',
+  /* ---------------- State ---------------- */
+  const state = {
+    tableToken: '',
+    customerKey: '',
     table: null,
-    menu: [],
-    cart: {},               // id -> {id,name,price,qty}
-    cat: 'All',
-    q: '',
-    coupon: null,           // {code, discount}
-    placing: false,
-    reqId: null,
-    active: store.get('active_order', null),   // {orderId, trackingToken}
+    publicConfig: null,
+    categories: [],
+    items: [],
+    cart: new Map(),
+    coupon: null,
+    searchTerm: '',
+    vegOnly: false,
+    currentView: 'menu',
+    currentOrder: null,
     pollTimer: null,
-    lastStatus: null
+    notifTimer: null,
+    notifOptedIn: false
   };
 
-  const money = (n) => S.cfg.currency + (Math.round(n * 100) / 100).toFixed(2).replace(/\.00$/, '');
-  const cartKey = () => 'cart_' + (S.token || 'none');
-
-  /* ================= 6. MENU RENDER ================= */
-  function categories() {
-    const seen = ['All'];
-    S.menu.forEach((m) => { if (!seen.includes(m.category)) seen.push(m.category); });
-    return seen;
+  /* ---------------- Toast ---------------- */
+  function showToast(message, type) {
+    const div = document.createElement('div');
+    div.className = 'toast' + (type ? ' toast--' + type : '');
+    div.textContent = message;
+    el.toastHost.appendChild(div);
+    setTimeout(function () { div.remove(); }, 3400);
   }
 
-  function renderTabs() {
-    const box = $('categoryTabs'); if (!box) return;
-    box.innerHTML = categories().map((c) =>
-      `<button type="button" class="cat-tab${c === S.cat ? ' active' : ''}" data-cat="${esc(c)}">${esc(c)}</button>`).join('');
+  /* ---------------- Money formatting ---------------- */
+  function formatMoney(amount) {
+    const currency = (state.publicConfig && state.publicConfig.currency) || '\u20b9';
+    const n = Math.round((Number(amount) || 0) * 100) / 100;
+    const negative = n < 0;
+    const parts = Math.abs(n).toFixed(2).split('.');
+    let intPart = parts[0];
+    const last3 = intPart.slice(-3);
+    let rest = intPart.slice(0, -3);
+    if (rest) rest = rest.replace(/\B(?=(\d{2})+(?!\d))/g, ',') + ',';
+    const decimals = parts[1] === '00' ? '' : '.' + parts[1];
+    return (negative ? '-' : '') + currency + rest + last3 + decimals;
+  }
+
+  /* ---------------- API ---------------- */
+  function apiError(code, message) {
+    const e = new Error(message);
+    e.isApiError = true;
+    e.code = code;
+    return e;
+  }
+
+  function apiCall(action, payload) {
+    const body = Object.assign({ action: action }, payload || {});
+    return fetch(API_URL, {
+      method: 'POST',
+      headers: { 'Content-Type': 'text/plain;charset=utf-8' },
+      body: JSON.stringify(body)
+    }).then(function (res) {
+      return res.json();
+    }).then(function (json) {
+      if (!json || typeof json !== 'object') {
+        throw apiError('SERVER_ERROR', 'Unexpected response from the server.');
+      }
+      if (json.ok) return json.data;
+      throw apiError(json.code || 'SERVER_ERROR', json.message || 'Something went wrong.');
+    }).catch(function (err) {
+      if (err && err.isApiError) throw err;
+      throw apiError('NETWORK_ERROR', 'Could not reach the server. Please check your internet connection.');
+    });
+  }
+
+  function handleFatalIfNeeded(err) {
+    if (err && (err.code === 'INVALID_TABLE' || err.code === 'INACTIVE_TABLE')) {
+      showFatalError('This table is not available', err.message);
+      return true;
+    }
+    return false;
+  }
+
+  /* ---------------- Screens ---------------- */
+  function showFatalError(title, message) {
+    el.screenLoading.hidden = true;
+    el.app.hidden = true;
+    el.screenError.hidden = false;
+    el.errorTitle.textContent = title || 'Something went wrong';
+    el.errorMessage.textContent = message || 'Please try again.';
+    el.errorRetryBtn.hidden = false;
+  }
+  function showApp() {
+    el.screenLoading.hidden = true;
+    el.screenError.hidden = true;
+    el.app.hidden = false;
+  }
+
+  el.errorRetryBtn.addEventListener('click', function () {
+    window.location.reload();
+  });
+
+  /* ---------------- customerKey / tableToken ---------------- */
+  function readTableTokenFromUrl() {
+    const params = new URLSearchParams(window.location.search);
+    return (params.get('t') || '').trim();
+  }
+
+  function randomAlphaNumeric(length) {
+    const alphabet = 'ABCDEFGHIJKLMNOPQRSTUVWXYZabcdefghijklmnopqrstuvwxyz0123456789';
+    const limit = Math.floor(256 / alphabet.length) * alphabet.length;
+    let out = '';
+    const bytes = new Uint8Array(length * 3);
+    if (window.crypto && window.crypto.getRandomValues) {
+      window.crypto.getRandomValues(bytes);
+    } else {
+      for (let i = 0; i < bytes.length; i++) bytes[i] = Math.floor(Math.random() * 256);
+    }
+    let i = 0;
+    while (out.length < length && i < bytes.length) {
+      const b = bytes[i++];
+      if (b < limit) out += alphabet.charAt(b % alphabet.length);
+    }
+    while (out.length < length) out += alphabet.charAt(Math.floor(Math.random() * alphabet.length));
+    return out;
+  }
+
+  function getOrCreateCustomerKey() {
+    let key = '';
+    try { key = localStorage.getItem(CUSTOMER_KEY_STORAGE) || ''; } catch (e) { key = ''; }
+    if (!/^[A-Za-z0-9]{16,64}$/.test(key)) {
+      key = randomAlphaNumeric(32);
+      try { localStorage.setItem(CUSTOMER_KEY_STORAGE, key); } catch (e) { /* ignore */ }
+    }
+    return key;
+  }
+
+  /* ---------------- Cart persistence ---------------- */
+  function cartStorageKey() { return 'loc_cart_' + state.tableToken; }
+  function saveCart() {
+    try { localStorage.setItem(cartStorageKey(), JSON.stringify(Array.from(state.cart.values()))); }
+    catch (e) { /* ignore */ }
+  }
+  function loadCart() {
+    try {
+      const raw = localStorage.getItem(cartStorageKey());
+      if (!raw) return;
+      const arr = JSON.parse(raw);
+      if (Array.isArray(arr)) arr.forEach(function (l) { if (l && l.itemId) state.cart.set(l.itemId, l); });
+    } catch (e) { /* ignore */ }
+  }
+  function clearCartStorage() {
+    try { localStorage.removeItem(cartStorageKey()); } catch (e) { /* ignore */ }
+  }
+
+  /* ================================================================ */
+  /* Boot                                                              */
+  /* ================================================================ */
+  function boot() {
+    if (!API_URL) {
+      showFatalError('Setup incomplete', 'The ordering system is not configured yet. Please contact the cafe owner.');
+      return;
+    }
+    state.tableToken = readTableTokenFromUrl();
+    if (!state.tableToken) {
+      showFatalError('Table not found', 'This link is missing a table code. Please scan the QR code on your table.');
+      return;
+    }
+    state.customerKey = getOrCreateCustomerKey();
+    loadCart();
+
+    Promise.all([
+      apiCall('getPublicConfig', {}),
+      apiCall('resolveTable', { tableToken: state.tableToken }),
+      apiCall('getMenu', { tableToken: state.tableToken })
+    ]).then(function (results) {
+      state.publicConfig = results[0];
+      state.table = results[1];
+      state.categories = results[2].categories || [];
+      state.items = results[2].items || [];
+      applyBranding();
+      applyTableInfo();
+      renderMenu();
+      renderCouponTiers();
+      bindEvents();
+      showApp();
+      refreshActiveOrder();
+      maybeShowNotifyCard();
+      startNotificationPolling();
+    }).catch(function (err) {
+      if (!handleFatalIfNeeded(err)) {
+        showFatalError('Could not load the menu', err.message || 'Please try again.');
+      }
+    });
+  }
+
+  /* ---------------- Branding / table info ---------------- */
+  function applyBranding() {
+    const c = state.publicConfig;
+    document.title = c.cafeName || 'Menu';
+    el.cafeName.textContent = c.cafeName || '';
+    el.cafeTagline.textContent = c.tagline || '';
+    if (c.logoUrl) { el.cafeLogo.src = c.logoUrl; el.cafeLogo.hidden = false; }
+    if (c.heroUrl) { el.heroImage.src = c.heroUrl; el.heroImage.hidden = false; }
+    else { el.heroSection.hidden = true; }
+    el.aboutName.textContent = c.cafeName || '';
+    el.aboutTagline.textContent = c.tagline || '';
+    el.aboutText.textContent = c.about || '';
+    if (c.logoUrl) { el.aboutLogo.src = c.logoUrl; el.aboutLogo.hidden = false; }
+    if (c.googleReviewUrl) { el.aboutReviewBtn.href = c.googleReviewUrl; el.aboutReviewBtn.hidden = false; }
+    bindSocial(el.aboutInstagram, c.social && c.social.instagram);
+    bindSocial(el.aboutFacebook, c.social && c.social.facebook);
+    bindSocial(el.aboutYoutube, c.social && c.social.youtube);
+    bindSocial(el.aboutX, c.social && c.social.x);
+  }
+  function bindSocial(anchor, url) {
+    if (url) { anchor.href = url; anchor.hidden = false; } else { anchor.hidden = true; }
+  }
+
+  function applyTableInfo() {
+    const t = state.table;
+    el.tableNumber.textContent = t.tableNumber;
+    el.heroTableText.textContent = 'Table ' + t.tableNumber;
+    el.cartTableNumber.textContent = t.tableNumber;
+    el.trackTableNumber.textContent = t.tableNumber;
+    el.formTable.textContent = 'Table ' + t.tableNumber;
+  }
+
+  /* ================================================================ */
+  /* Menu rendering                                                    */
+  /* ================================================================ */
+  let categoryObserver = null;
+
+  function slugify(text) {
+    return String(text).toLowerCase().replace(/[^a-z0-9]+/g, '-').replace(/(^-|-$)/g, '') || 'cat';
   }
 
   function renderMenu() {
-    const box = $('menuList'); if (!box) return;
-    const q = S.q.trim().toLowerCase();
-    const list = S.menu.filter((m) =>
-      (S.cat === 'All' || m.category === S.cat) &&
-      (!q || m.name.toLowerCase().includes(q) || m.desc.toLowerCase().includes(q)));
-    if (!list.length) { box.innerHTML = '<p class="empty">Koi item nahi mila.</p>'; return; }
-    box.innerHTML = list.map((m) => {
-      const qty = S.cart[m.id] ? S.cart[m.id].qty : 0;
-      const vegDot = m.veg === null ? '' :
-        `<span class="veg-dot ${(m.veg === true || String(m.veg).toLowerCase() === 'true' || String(m.veg).toLowerCase() === 'veg') ? 'veg' : 'nonveg'}"></span>`;
-      const ctrl = !m.available ? '<span class="soldout">Sold out</span>'
-        : qty === 0 ? `<button type="button" class="add-btn" data-act="add" data-id="${esc(m.id)}">Add</button>`
-        : `<div class="qty-ctrl"><button type="button" data-act="dec" data-id="${esc(m.id)}">−</button><span>${qty}</span><button type="button" data-act="inc" data-id="${esc(m.id)}">+</button></div>`;
-      return `<div class="menu-item${m.available ? '' : ' unavailable'}">
-        ${m.image ? `<img src="${esc(m.image)}" alt="" loading="lazy">` : ''}
-        <div class="mi-info">${vegDot}<h3>${esc(m.name)}</h3>
-          ${m.desc ? `<p>${esc(m.desc)}</p>` : ''}
-          <strong>${money(m.price)}</strong></div>
-        <div class="mi-ctrl">${ctrl}</div></div>`;
-    }).join('');
+    el.categoryBar.innerHTML = '';
+    el.menuList.innerHTML = '';
+
+    const allChip = cloneTpl(tpl.chip);
+    allChip.textContent = 'All';
+    allChip.dataset.category = '__all__';
+    allChip.classList.add('is-active');
+    el.categoryBar.appendChild(allChip);
+
+    state.categories.forEach(function (cat) {
+      const chip = cloneTpl(tpl.chip);
+      chip.textContent = cat;
+      chip.dataset.category = cat;
+      el.categoryBar.appendChild(chip);
+    });
+    el.categoryBar.addEventListener('click', onCategoryChipClick);
+
+    const itemsByCategory = {};
+    state.items.forEach(function (item) {
+      (itemsByCategory[item.category] = itemsByCategory[item.category] || []).push(item);
+    });
+
+    state.categories.forEach(function (cat) {
+      const section = cloneTpl(tpl.category);
+      section.id = 'cat-' + slugify(cat);
+      role(section, 'title').textContent = cat;
+      const itemsHost = role(section, 'items');
+      (itemsByCategory[cat] || []).forEach(function (item) {
+        itemsHost.appendChild(buildMenuCard(item));
+      });
+      el.menuList.appendChild(section);
+    });
+
+    setupScrollSpy();
+    applyFilters();
   }
 
-  /* ================= 7. CART ================= */
-  const subtotal = () => Object.values(S.cart).reduce((s, i) => s + i.price * i.qty, 0);
-  const count = () => Object.values(S.cart).reduce((s, i) => s + i.qty, 0);
-  const saveCart = () => store.set(cartKey(), S.cart);
+  function buildMenuCard(item) {
+    const card = cloneTpl(tpl.menuCard);
+    card.dataset.itemId = item.itemId;
+    card.dataset.name = item.itemName.toLowerCase();
+    card.dataset.veg = item.vegStatus;
 
-  function changeQty(id, delta) {
-    const m = S.menu.find((x) => x.id === id);
-    if (!m || !m.available) return;
-    const cur = S.cart[id] ? S.cart[id].qty : 0;
-    const next = Math.max(0, Math.min(50, cur + delta));
-    if (next === 0) delete S.cart[id];
-    else S.cart[id] = { id, name: m.name, price: m.price, qty: next };
+    const vegMark = role(card, 'vegMark');
+    if (item.vegStatus === 'NON_VEG') vegMark.classList.add('is-nonveg');
+
+    role(card, 'name').textContent = item.itemName;
+
+    const tagEl = role(card, 'tag');
+    if (item.tag) { tagEl.textContent = item.tag; tagEl.hidden = false; }
+
+    const taglineEl = role(card, 'tagline');
+    if (item.tagline) taglineEl.textContent = item.tagline; else taglineEl.hidden = true;
+
+    role(card, 'price').textContent = formatMoney(item.price);
+
+    if (!item.available) {
+      card.classList.add('is-unavailable');
+      role(card, 'unavailable').hidden = false;
+    }
+
+    const addBtn = role(card, 'addBtn');
+    const qtyControl = role(card, 'qtyControl');
+    const qtyValue = role(card, 'qty');
+    const minusBtn = role(card, 'minusBtn');
+    const plusBtn = role(card, 'plusBtn');
+
+    function syncQtyUi() {
+      const line = state.cart.get(item.itemId);
+      const qty = line ? line.quantity : 0;
+      if (qty > 0) {
+        addBtn.hidden = true;
+        qtyControl.hidden = false;
+        qtyValue.textContent = String(qty);
+      } else {
+        addBtn.hidden = false;
+        qtyControl.hidden = true;
+      }
+    }
+
+    addBtn.addEventListener('click', function () { addToCart(item, 1); });
+    plusBtn.addEventListener('click', function () { addToCart(item, 1); });
+    minusBtn.addEventListener('click', function () { addToCart(item, -1); });
+
+    card._syncQtyUi = syncQtyUi;
+    syncQtyUi();
+    return card;
+  }
+
+  function refreshAllMenuCardQuantities() {
+    qAll('.menu-card', el.menuList).forEach(function (card) {
+      if (card._syncQtyUi) card._syncQtyUi();
+    });
+  }
+
+  function onCategoryChipClick(e) {
+    const chip = e.target.closest('.chip');
+    if (!chip) return;
+    qAll('.chip', el.categoryBar).forEach(function (c) { c.classList.remove('is-active'); });
+    chip.classList.add('is-active');
+    if (chip.dataset.category === '__all__') {
+      window.scrollTo({ top: 0, behavior: 'smooth' });
+      return;
+    }
+    const section = document.getElementById('cat-' + slugify(chip.dataset.category));
+    if (section) {
+      const top = section.getBoundingClientRect().top + window.pageYOffset - 150;
+      window.scrollTo({ top: top, behavior: 'smooth' });
+    }
+  }
+
+  function setupScrollSpy() {
+    if (categoryObserver) categoryObserver.disconnect();
+    const sections = qAll('.category-section', el.menuList);
+    if (!sections.length || !('IntersectionObserver' in window)) return;
+    categoryObserver = new IntersectionObserver(function (entries) {
+      let best = null;
+      entries.forEach(function (entry) {
+        if (entry.isIntersecting && (!best || entry.intersectionRatio > best.intersectionRatio)) best = entry;
+      });
+      if (best) {
+        const catName = role(best.target, 'title').textContent;
+        qAll('.chip', el.categoryBar).forEach(function (c) {
+          c.classList.toggle('is-active', c.dataset.category === catName);
+        });
+      }
+    }, { rootMargin: '-160px 0px -60% 0px', threshold: [0, 0.25, 0.5, 1] });
+    sections.forEach(function (s) { categoryObserver.observe(s); });
+  }
+
+  function applyFilters() {
+    const term = state.searchTerm.trim().toLowerCase();
+    let anyVisible = false;
+    qAll('.category-section', el.menuList).forEach(function (section) {
+      let sectionHasVisible = false;
+      qAll('.menu-card', section).forEach(function (card) {
+        const matchesSearch = !term || card.dataset.name.indexOf(term) !== -1;
+        const matchesVeg = !state.vegOnly || card.dataset.veg === 'VEG';
+        const visible = matchesSearch && matchesVeg;
+        card.hidden = !visible;
+        if (visible) sectionHasVisible = true;
+      });
+      section.hidden = !sectionHasVisible;
+      if (sectionHasVisible) anyVisible = true;
+    });
+    el.menuEmpty.hidden = anyVisible;
+    if (!anyVisible) {
+      el.menuEmptyText.textContent = (term || state.vegOnly)
+        ? 'No items match your search.'
+        : 'No items available right now.';
+    }
+  }
+
+  /* ================================================================ */
+  /* Cart                                                              */
+  /* ================================================================ */
+  function addToCart(item, delta) {
+    const existing = state.cart.get(item.itemId);
+    const maxQty = (state.publicConfig && state.publicConfig.maxItemQuantity) || 20;
+    let qty = (existing ? existing.quantity : 0) + delta;
+    if (qty > maxQty) {
+      qty = maxQty;
+      showToast('You can order at most ' + maxQty + ' of this item.', 'error');
+    }
+    if (qty <= 0) {
+      state.cart.delete(item.itemId);
+    } else {
+      state.cart.set(item.itemId, {
+        itemId: item.itemId,
+        itemName: item.itemName,
+        category: item.category,
+        price: item.price,
+        vegStatus: item.vegStatus,
+        quantity: qty
+      });
+    }
     saveCart();
     onCartChanged();
   }
 
-  let revalidateTimer;
+  function removeFromCartCompletely(itemId) {
+    state.cart.delete(itemId);
+    saveCart();
+    onCartChanged();
+  }
+
+  function clearCart() {
+    state.cart.clear();
+    state.coupon = null;
+    saveCart();
+    onCartChanged();
+  }
+
+  function cartSubtotal() {
+    let total = 0;
+    state.cart.forEach(function (line) { total += line.price * line.quantity; });
+    return Math.round((total + Number.EPSILON) * 100) / 100;
+  }
+
+  function cartItemCount() {
+    let count = 0;
+    state.cart.forEach(function (line) { count += line.quantity; });
+    return count;
+  }
+
+  function cartPayload() {
+    return Array.from(state.cart.values()).map(function (l) {
+      return { itemId: l.itemId, quantity: l.quantity };
+    });
+  }
+
   function onCartChanged() {
-    renderMenu(); renderCart();
-    if (S.coupon) {
-      clearTimeout(revalidateTimer);
-      revalidateTimer = setTimeout(() => applyCoupon(S.coupon.code, true), 400);
-    }
+    refreshAllMenuCardQuantities();
+    renderCartLines();
+    renderCouponTiers();
+    updateSummary();
+    if (state.coupon) revalidateCoupon();
   }
 
-  function renderCart() {
-    const n = count(), sub = subtotal();
-    const disc = S.coupon ? Math.min(S.coupon.discount, sub) : 0;
-    const bar = $('cartBar'); show(bar, n > 0);
-    if ($('cartCount')) $('cartCount').textContent = n;
-    if ($('cartTotal')) $('cartTotal').textContent = money(sub - disc);
-    if ($('subtotal')) $('subtotal').textContent = money(sub);
-    if ($('discount')) $('discount').textContent = disc ? '−' + money(disc) : money(0);
-    if ($('grandTotal')) $('grandTotal').textContent = money(sub - disc);
-
-    const box = $('cartItems');
-    if (box) {
-      const items = Object.values(S.cart);
-      box.innerHTML = items.length ? items.map((i) =>
-        `<div class="cart-row"><div class="cr-name">${esc(i.name)}<small>${money(i.price)} each</small></div>
-          <div class="qty-ctrl"><button type="button" data-act="dec" data-id="${esc(i.id)}">−</button><span>${i.qty}</span><button type="button" data-act="inc" data-id="${esc(i.id)}">+</button></div>
-          <div class="cr-amt">${money(i.price * i.qty)}</div></div>`).join('')
-        : '<p class="empty">Cart khaali hai.</p>';
-    }
-    const pb = $('placeOrderBtn');
-    if (pb) pb.disabled = S.placing || n === 0 || !S.table || !S.cfg.open;
+  function updateCartBar() {
+    const count = cartItemCount();
+    const showBar = count > 0 && state.currentView === 'menu';
+    el.cartBar.hidden = !showBar;
+    document.body.classList.toggle('has-cart-bar', showBar);
+    el.cartBarCount.textContent = count + (count === 1 ? ' item' : ' items');
+    el.cartBarTotal.textContent = formatMoney(cartSubtotal());
   }
 
-  /* ================= 8. COUPON ================= */
-  async function applyCoupon(codeArg, silent) {
-    const input = $('couponInput');
-    const code = String(codeArg || (input && input.value) || '').trim().toUpperCase();
-    const msg = $('couponMsg');
-    const say = (t, ok) => { if (msg) { msg.textContent = t; msg.className = 'coupon-msg ' + (ok ? 'ok' : 'err'); } };
-    if (!code) { say('Coupon code likho', false); return; }
-    if (!count()) { say('Pehle cart mein item daalo', false); return; }
-    try {
-      const d = await api.post(A.actions.validateCoupon, {
-        code,
-        subtotal: subtotal(),
-        items: Object.values(S.cart).map((i) => ({ id: i.id, qty: i.qty }))
-      });
-      const valid = pick(d, ['valid', 'isValid'], true);
-      if (valid === false) throw new Error(pick(d, ['message', 'reason'], 'Coupon valid nahi hai'));
-      const discount = num(pick(d, ['discount', 'discountAmount'], 0));
-      S.coupon = { code: String(pick(d, ['code'], code)).toUpperCase(), discount };
-      if (input) input.value = S.coupon.code;
-      say(pick(d, ['message'], 'Coupon laga: −' + money(discount)), true);
-    } catch (e) {
-      S.coupon = null;
-      say(e.message, false);
-      if (silent) toast('Coupon hata diya: ' + e.message);
-    }
-    renderCart();
+  function renderCartLines() {
+    el.cartItems.innerHTML = '';
+    const lines = Array.from(state.cart.values());
+    el.cartEmpty.hidden = lines.length > 0;
+    el.orderForm.hidden = lines.length === 0;
+    el.checkoutBar.hidden = lines.length === 0;
+
+    lines.forEach(function (line) {
+      const li = cloneTpl(tpl.cartLine);
+      const vegMark = role(li, 'vegMark');
+      if (line.vegStatus === 'NON_VEG') vegMark.classList.add('is-nonveg');
+      role(li, 'name').textContent = line.itemName;
+      role(li, 'unit').textContent = formatMoney(line.price) + ' each';
+      role(li, 'qty').textContent = String(line.quantity);
+      role(li, 'lineTotal').textContent = formatMoney(line.price * line.quantity);
+
+      role(li, 'minusBtn').addEventListener('click', function () { addToCart(line, -1); });
+      role(li, 'plusBtn').addEventListener('click', function () { addToCart(line, 1); });
+      role(li, 'removeBtn').addEventListener('click', function () { removeFromCartCompletely(line.itemId); });
+      el.cartItems.appendChild(li);
+    });
   }
 
-  /* ================= 9. PLACE ORDER ================= */
-  async function placeOrder() {
-    if (S.placing) return;
-    if (!S.table) return toast('Table QR scan karke aao');
-    if (!S.cfg.open) return toast(S.cfg.message || 'Abhi orders band hain');
-    if (!count()) return toast('Cart khaali hai');
-    const name = ($('customerName') ? $('customerName').value : '').trim();
-    const phone = ($('customerPhone') ? $('customerPhone').value : '').replace(/[\s-]/g, '');
-    if (phone && !A.phoneRegex.test(phone)) return toast('Phone number sahi daalo');
-
-    S.placing = true; renderCart();
-    const btn = $('placeOrderBtn'); const old = btn ? btn.textContent : '';
-    if (btn) btn.textContent = 'Placing…';
-    if (!S.reqId) S.reqId = uid();     // retry par wahi id (duplicate order se bachne ke liye)
-    try {
-      const d = await api.post(A.actions.createOrder, {
-        token: S.token,
-        customerName: name,
-        customerPhone: phone,
-        note: ($('orderNote') ? $('orderNote').value : '').trim(),
-        items: Object.values(S.cart).map((i) => ({ id: i.id, qty: i.qty })),
-        couponCode: S.coupon ? S.coupon.code : '',
-        requestId: S.reqId
-      });
-      const orderId = String(pick(d, ['orderId', 'id'], ''));
-      if (!orderId) throw new Error('Order ID nahi mili');
-      S.active = { orderId, trackingToken: String(pick(d, ['trackingToken', 'trackToken', 'token'], '')) };
-      store.set('active_order', S.active);
-      S.cart = {}; S.coupon = null; S.reqId = null; saveCart();
-      if ($('couponInput')) $('couponInput').value = '';
-      if ($('couponMsg')) $('couponMsg').textContent = '';
-      show($('cartModal'), false);
-      onCartChanged();
-      toast('Order place ho gaya! #' + orderId);
-      openTrack();
-    } catch (e) {
-      toast(e.message);
-    } finally {
-      S.placing = false;
-      if (btn) btn.textContent = old || 'Place Order';
-      renderCart();
-    }
-  }
-
-  /* ================= 10. TRACKING ================= */
-  async function fetchOrder() {
-    if (!S.active) return null;
-    const p = {};
-    p[A.params.trackOrderId] = S.active.orderId;
-    if (S.active.trackingToken) p[A.params.trackToken] = S.active.trackingToken;
-    p[A.params.tableToken] = S.token;
-    return normOrder(await api.get(A.actions.trackOrder, p));
-  }
-
-  function renderTrack(o) {
-    const body = $('trackBody'); if (!body) return;
-    if (!o) { body.innerHTML = '<p class="empty">Koi active order nahi.</p>'; return; }
-    let html = `<h3>Order #${esc(o.id || (S.active && S.active.orderId))}</h3>`;
-    if (o.status === 'rejected') {
-      html += `<p class="track-bad">Order cancel/reject ho gaya.${o.reason ? ' ' + esc(o.reason) : ''}</p>`;
+  function updateSummary() {
+    const subtotal = cartSubtotal();
+    el.sumSubtotal.textContent = formatMoney(subtotal);
+    let total = subtotal;
+    if (state.coupon) {
+      el.sumDiscountRow.hidden = false;
+      el.sumDiscountLabel.textContent = 'Discount (' + state.coupon.couponCode + ')';
+      el.sumDiscount.textContent = '-' + formatMoney(state.coupon.discountAmount);
+      total = state.coupon.finalTotal;
     } else {
-      const idx = A.steps.findIndex((s) => s.key === o.status);
-      html += '<ol class="track-steps">' + A.steps.map((s, i) =>
-        `<li class="${i < idx ? 'done' : i === idx ? 'current' : ''}">${esc(s.label)}</li>`).join('') + '</ol>';
-      if (o.eta && o.status !== 'served') html += `<p>Estimated time: ${esc(o.eta)} min</p>`;
+      el.sumDiscountRow.hidden = true;
     }
-    if (o.total) html += `<p>Total: <strong>${money(o.total)}</strong></p>`;
-    if (A.terminal.includes(o.status)) html += '<button type="button" id="trackDoneBtn" class="btn">Naya order</button>';
-    body.innerHTML = html;
+    el.sumTotal.textContent = formatMoney(total);
+    el.checkoutTotal.textContent = formatMoney(total);
+    updateCartBar();
   }
 
-  function renderBanner(o) {
-    const b = $('statusBanner'); if (!b) return;
-    if (!o) { show(b, false); return; }
-    const label = (A.steps.find((s) => s.key === o.status) || { label: 'Rejected' }).label;
-    b.textContent = `Order #${o.id || S.active.orderId}: ${label} — tap karke dekho`;
-    show(b, true);
+  /* ================================================================ */
+  /* Coupons                                                           */
+  /* ================================================================ */
+  function renderCouponTiers() {
+    el.couponTiers.innerHTML = '';
+    const tiers = (state.publicConfig && state.publicConfig.couponTiers) || [];
+    if (!tiers.length) { el.couponTiersTitle.hidden = true; return; }
+    el.couponTiersTitle.hidden = false;
+    const subtotal = Math.floor(cartSubtotal());
+    tiers.forEach(function (tier) {
+      const li = cloneTpl(tpl.tier);
+      const btn = role(li, 'tierBtn');
+      role(li, 'code').textContent = tier.couponCode;
+      role(li, 'desc').textContent = tier.description;
+      const max = (tier.maxOrder === null || tier.maxOrder === undefined) ? Infinity : tier.maxOrder;
+      if (subtotal >= tier.minOrder && subtotal <= max) btn.classList.add('is-eligible');
+      btn.addEventListener('click', function () {
+        el.couponCode.value = tier.couponCode;
+        applyCoupon();
+      });
+      el.couponTiers.appendChild(li);
+    });
   }
 
-  async function refreshOrder() {
-    if (!S.active) { renderBanner(null); return; }
-    try {
-      const o = await fetchOrder();
-      if (S.lastStatus && S.lastStatus !== o.status) toast('Order update: ' + o.status);
-      S.lastStatus = o.status;
-      renderTrack(o); renderBanner(o);
-      if (A.terminal.includes(o.status)) stopPolling();
-    } catch (e) {
-      const body = $('trackBody');
-      if (body && !body.innerHTML) body.innerHTML = `<p class="track-bad">${esc(e.message)}</p>`;
+  function setCouponMessage(message, kind) {
+    el.couponMessage.hidden = !message;
+    el.couponMessage.textContent = message || '';
+    el.couponMessage.classList.remove('is-ok', 'is-error');
+    if (kind) el.couponMessage.classList.add(kind === 'ok' ? 'is-ok' : 'is-error');
+  }
+
+  function applyCoupon() {
+    const code = el.couponCode.value.trim();
+    if (!code) { setCouponMessage('Please enter a coupon code.', 'error'); return; }
+    if (!state.cart.size) { setCouponMessage('Add items to your cart first.', 'error'); return; }
+    el.applyCouponBtn.disabled = true;
+    apiCall('validateCoupon', { tableToken: state.tableToken, items: cartPayload(), couponCode: code })
+      .then(function (data) {
+        state.coupon = data;
+        el.couponCode.value = data.couponCode;
+        el.couponCode.disabled = true;
+        el.applyCouponBtn.hidden = true;
+        el.removeCouponBtn.hidden = false;
+        setCouponMessage(data.discountPercent + '% discount applied.', 'ok');
+        updateSummary();
+      })
+      .catch(function (err) {
+        state.coupon = null;
+        setCouponMessage(err.message, 'error');
+        updateSummary();
+      })
+      .finally(function () { el.applyCouponBtn.disabled = false; });
+  }
+
+  function revalidateCoupon() {
+    if (!state.coupon) return;
+    const code = state.coupon.couponCode;
+    if (!state.cart.size) { removeCoupon(); return; }
+    apiCall('validateCoupon', { tableToken: state.tableToken, items: cartPayload(), couponCode: code })
+      .then(function (data) { state.coupon = data; updateSummary(); })
+      .catch(function (err) {
+        state.coupon = null;
+        el.couponCode.value = '';
+        el.couponCode.disabled = false;
+        el.applyCouponBtn.hidden = false;
+        el.removeCouponBtn.hidden = true;
+        setCouponMessage('Coupon ' + code + ' removed: ' + err.message, 'error');
+        updateSummary();
+      });
+  }
+
+  function removeCoupon() {
+    state.coupon = null;
+    el.couponCode.value = '';
+    el.couponCode.disabled = false;
+    el.applyCouponBtn.hidden = false;
+    el.removeCouponBtn.hidden = true;
+    setCouponMessage('', null);
+    updateSummary();
+  }
+
+  /* ================================================================ */
+  /* View switching                                                    */
+  /* ================================================================ */
+  function switchView(name) {
+    state.currentView = name;
+    el.viewMenu.hidden = name !== 'menu';
+    el.viewCart.hidden = name !== 'cart';
+    el.viewTrack.hidden = name !== 'track';
+    window.scrollTo({ top: 0, behavior: 'auto' });
+    updateCartBar();
+    if (name !== 'track') stopPolling();
+  }
+
+  /* ================================================================ */
+  /* Form validation + order placement                                 */
+  /* ================================================================ */
+  function validateMobileClientSide(value) {
+    let digits = value.replace(/[\s\-().]/g, '');
+    digits = digits.replace(/^\+?91/, '').replace(/^0/, '');
+    return /^[6-9]\d{9}$/.test(digits);
+  }
+
+  function clearFormErrors() {
+    el.customerNameError.hidden = true;
+    el.customerNameError.textContent = '';
+    el.customerMobileError.hidden = true;
+    el.customerMobileError.textContent = '';
+    el.formError.hidden = true;
+    el.formError.textContent = '';
+    el.customerName.classList.remove('is-invalid');
+    el.customerMobile.classList.remove('is-invalid');
+  }
+
+  function submitOrder(e) {
+    e.preventDefault();
+    clearFormErrors();
+
+    let valid = true;
+    const name = el.customerName.value.trim();
+    if (!name) {
+      el.customerNameError.textContent = 'Please enter your name.';
+      el.customerNameError.hidden = false;
+      el.customerName.classList.add('is-invalid');
+      valid = false;
     }
+    const mobile = el.customerMobile.value.trim();
+    if (!mobile || !validateMobileClientSide(mobile)) {
+      el.customerMobileError.textContent = 'Please enter a valid 10-digit mobile number.';
+      el.customerMobileError.hidden = false;
+      el.customerMobile.classList.add('is-invalid');
+      valid = false;
+    }
+    if (!state.cart.size) {
+      el.formError.textContent = 'Your cart is empty.';
+      el.formError.hidden = false;
+      valid = false;
+    }
+    if (!valid) return;
+
+    el.placeOrderBtn.disabled = true;
+    el.placeOrderBtn.classList.add('is-loading');
+
+    apiCall('createOrder', {
+      tableToken: state.tableToken,
+      customerKey: state.customerKey,
+      customerName: name,
+      mobile: mobile,
+      specialRequest: el.specialRequest.value.trim(),
+      couponCode: state.coupon ? state.coupon.couponCode : '',
+      items: cartPayload()
+    }).then(function (order) {
+      clearCart();
+      clearCartStorage();
+      removeCoupon();
+      el.orderForm.reset();
+      el.specialCount.textContent = '0/' + ((state.publicConfig && state.publicConfig.maxSpecialRequestLength) || 300);
+      state.currentOrder = order;
+      el.trackSuccess.hidden = false;
+      renderTrack(order);
+      switchView('track');
+      startPolling();
+    }).catch(function (err) {
+      if (!handleFatalIfNeeded(err)) {
+        el.formError.textContent = err.message;
+        el.formError.hidden = false;
+      }
+    }).finally(function () {
+      el.placeOrderBtn.disabled = false;
+      el.placeOrderBtn.classList.remove('is-loading');
+    });
+  }
+
+  /* ================================================================ */
+  /* Tracking                                                          */
+  /* ================================================================ */
+  const STATUS_TEXT = {
+    NEW: 'Your order has been placed.',
+    PREPARING: 'Your order is being prepared.',
+    COMPLETED: 'Your order is complete. Enjoy!',
+    CANCELLED: 'This order was cancelled.'
+  };
+
+  function renderTrack(order) {
+    el.trackOrderId.textContent = order.orderId;
+    el.trackTime.textContent = order.orderDate + ' ' + order.orderTime;
+    el.trackSteps.dataset.status = order.orderStatus;
+    el.trackStatusText.textContent = STATUS_TEXT[order.orderStatus] || '';
+    el.trackStatusUpdated.textContent = 'Updated ' + order.statusUpdatedAt;
+    el.trackCancelled.hidden = order.orderStatus !== 'CANCELLED';
+
+    el.trackItems.innerHTML = '';
+    order.items.forEach(function (line) {
+      const li = cloneTpl(tpl.trackLine);
+      role(li, 'qty').textContent = 'x' + line.quantity;
+      role(li, 'name').textContent = line.itemName;
+      role(li, 'lineTotal').textContent = formatMoney(line.lineTotal);
+      el.trackItems.appendChild(li);
+    });
+
+    el.trackSubtotal.textContent = formatMoney(order.subtotal);
+    if (order.couponCode) {
+      el.trackDiscountRow.hidden = false;
+      el.trackDiscountLabel.textContent = 'Discount (' + order.couponCode + ')';
+      el.trackDiscount.textContent = '-' + formatMoney(order.discountAmount);
+    } else {
+      el.trackDiscountRow.hidden = true;
+    }
+    el.trackTotal.textContent = formatMoney(order.finalTotal);
+
+    if (order.specialRequest) {
+      el.trackSpecialBox.hidden = false;
+      el.trackSpecial.textContent = order.specialRequest;
+    } else {
+      el.trackSpecialBox.hidden = true;
+    }
+  }
+
+  function fetchOrderStatus(showErrors) {
+    if (!state.currentOrder) return Promise.resolve();
+    return apiCall('getOrderStatus', {
+      tableToken: state.tableToken,
+      customerKey: state.customerKey,
+      orderId: state.currentOrder.orderId
+    }).then(function (order) {
+      state.currentOrder = order;
+      renderTrack(order);
+      if (order.orderStatus === 'COMPLETED' || order.orderStatus === 'CANCELLED') stopPolling();
+    }).catch(function (err) {
+      if (!handleFatalIfNeeded(err) && showErrors) showToast(err.message, 'error');
+    });
   }
 
   function startPolling() {
     stopPolling();
-    S.pollTimer = setInterval(() => { if (!document.hidden) refreshOrder(); }, A.pollMs);
+    const seconds = (state.publicConfig && state.publicConfig.pollSeconds) || 10;
+    state.pollTimer = setInterval(function () { fetchOrderStatus(false); }, seconds * 1000);
   }
-  function stopPolling() { clearInterval(S.pollTimer); S.pollTimer = null; }
-
-  function openTrack() { show($('trackModal'), true); refreshOrder(); startPolling(); }
-  function clearActive() {
-    S.active = null; S.lastStatus = null; store.del('active_order');
-    stopPolling(); renderBanner(null); show($('trackModal'), false);
+  function stopPolling() {
+    if (state.pollTimer) { clearInterval(state.pollTimer); state.pollTimer = null; }
   }
 
-  /* ================= 11. EVENTS ================= */
-  function bind() {
-    const on = (key, ev, fn) => { const n = $(key); if (n) n.addEventListener(ev, fn); };
+  function refreshActiveOrder() {
+    apiCall('getActiveOrder', { tableToken: state.tableToken, customerKey: state.customerKey })
+      .then(function (order) {
+        if (!order) { el.activeOrderBanner.hidden = true; return; }
+        state.currentOrder = order;
+        el.activeOrderBanner.hidden = false;
+        if (order.orderStatus === 'COMPLETED') {
+          el.activeOrderTitle.textContent = 'Your last order is complete';
+          el.activeOrderSub.textContent = 'Tap to view details';
+        } else {
+          el.activeOrderTitle.textContent = order.orderStatus === 'PREPARING'
+            ? 'Your order is being prepared'
+            : 'You have an order in progress';
+          el.activeOrderSub.textContent = 'Tap to track it';
+        }
+      })
+      .catch(function (err) { handleFatalIfNeeded(err); });
+  }
 
-    on('categoryTabs', 'click', (e) => {
-      const b = e.target.closest('[data-cat]'); if (!b) return;
-      S.cat = b.dataset.cat; renderTabs(); renderMenu();
+  /* ================================================================ */
+  /* Modals                                                            */
+  /* ================================================================ */
+  function openModal(modal) { modal.hidden = false; }
+  function closeModal(modal) { modal.hidden = true; }
+  function bindModal(modal) {
+    qAll('[data-close-modal]', modal).forEach(function (btn) {
+      btn.addEventListener('click', function () { closeModal(modal); });
     });
-    on('searchInput', 'input', (e) => { S.q = e.target.value; renderMenu(); });
-
-    const qtyHandler = (e) => {
-      const b = e.target.closest('[data-act]'); if (!b) return;
-      changeQty(b.dataset.id, b.dataset.act === 'dec' ? -1 : 1);
-    };
-    on('menuList', 'click', qtyHandler);
-    on('cartItems', 'click', qtyHandler);
-
-    on('openCartBtn', 'click', () => { renderCart(); show($('cartModal'), true); });
-    on('cartBar', 'click', (e) => { if (!e.target.closest('#' + A.ids.openCartBtn)) { renderCart(); show($('cartModal'), true); } });
-    on('closeCartBtn', 'click', () => show($('cartModal'), false));
-    on('applyCouponBtn', 'click', () => applyCoupon());
-    on('placeOrderBtn', 'click', placeOrder);
-
-    on('statusBanner', 'click', openTrack);
-    on('closeTrackBtn', 'click', () => show($('trackModal'), false));
-    on('trackBody', 'click', (e) => { if (e.target.id === 'trackDoneBtn') clearActive(); });
-
-    document.addEventListener('visibilitychange', () => { if (!document.hidden && S.active) refreshOrder(); });
   }
 
-  /* ================= 12. INIT ================= */
-  async function init() {
-    bind();
-    S.token = new URLSearchParams(location.search).get(A.urlTableParam) || store.get('last_token', '');
-    show($('cartModal'), false); show($('trackModal'), false); show($('cartBar'), false);
+  /* ================================================================ */
+  /* Notifications (in-app, poll based)                                */
+  /* ASSUMPTION (Notifications.gs not available when writing this):    */
+  /*  - saveNotificationSubscription payload: {customerKey, permission,*/
+  /*    userAgent}                                                     */
+  /*  - getCustomerNotifications payload: {customerKey}                */
+  /*  - response accepted in 3 possible shapes defensively below.      */
+  /*  VERIFY against the real Notifications.gs once available.         */
+  /* ================================================================ */
+  function maybeShowNotifyCard() {
+    let opted = '';
+    try { opted = localStorage.getItem(NOTIF_OPT_STORAGE) || ''; } catch (e) { /* ignore */ }
+    state.notifOptedIn = opted === 'yes';
+    el.notifyCard.hidden = state.notifOptedIn;
+  }
 
-    const menuBox = $('menuList');
-    if (menuBox) menuBox.innerHTML = '<p class="empty">Loading menu…</p>';
+  if (el.notifyBtn) {
+    el.notifyBtn.addEventListener('click', function () {
+      el.notifyBtn.disabled = true;
+      apiCall('saveNotificationSubscription', {
+        customerKey: state.customerKey,
+        permission: 'granted',
+        userAgent: navigator.userAgent
+      }).then(function () {
+        state.notifOptedIn = true;
+        try { localStorage.setItem(NOTIF_OPT_STORAGE, 'yes'); } catch (e) { /* ignore */ }
+        el.notifyCard.hidden = true;
+        showToast('Notifications enabled. Keep this page open to receive offers.', 'success');
+      }).catch(function (err) {
+        showToast(err.message, 'error');
+      }).finally(function () {
+        el.notifyBtn.disabled = false;
+      });
+    });
+  }
 
-    try {
-      const [cfg, menu] = await Promise.all([
-        api.get(A.actions.publicConfig).catch(() => ({})),
-        api.get(A.actions.menu)
-      ]);
-      S.cfg = normConfig(cfg);
-      S.menu = normMenu(menu);
-    } catch (e) {
-      if (menuBox) menuBox.innerHTML = `<p class="empty">Menu load nahi hua: ${esc(e.message)}</p>`;
-      return;
+  function startNotificationPolling() {
+    if (!state.publicConfig) return;
+    const intervalMs = Math.max((state.publicConfig.pollSeconds || 10), 10) * 3 * 1000;
+    pollNotifications();
+    state.notifTimer = setInterval(pollNotifications, intervalMs);
+  }
+
+  function pollNotifications() {
+    if (!state.notifOptedIn) return;
+    let seen = [];
+    try { seen = JSON.parse(localStorage.getItem(SEEN_NOTIF_STORAGE) || '[]'); } catch (e) { seen = []; }
+    apiCall('getCustomerNotifications', { customerKey: state.customerKey })
+      .then(function (data) {
+        const list = Array.isArray(data) ? data
+          : (data && Array.isArray(data.notifications)) ? data.notifications
+          : (data && data.notification) ? [data.notification]
+          : [];
+        const fresh = list.filter(function (n) { return n && n.notificationId && seen.indexOf(n.notificationId) === -1; });
+        if (fresh.length) {
+          showNotification(fresh[fresh.length - 1]);
+          const updatedSeen = seen.concat(fresh.map(function (n) { return n.notificationId; })).slice(-50);
+          try { localStorage.setItem(SEEN_NOTIF_STORAGE, JSON.stringify(updatedSeen)); } catch (e) { /* ignore */ }
+        }
+      })
+      .catch(function () { /* notifications are best-effort: fail silently */ });
+  }
+
+  function showNotification(n) {
+    if (n.imageUrl) { el.notifImage.src = n.imageUrl; el.notifImage.hidden = false; }
+    else { el.notifImage.hidden = true; }
+    el.notifTitle.textContent = n.title || '';
+    el.notifMessage.textContent = n.message || '';
+    if (n.buttonLink) {
+      el.notifLink.href = n.buttonLink;
+      el.notifLink.textContent = n.buttonText || 'Open';
+      el.notifLink.hidden = false;
+    } else {
+      el.notifLink.hidden = true;
     }
-    if ($('restaurantName')) $('restaurantName').textContent = S.cfg.name;
-    document.title = S.cfg.name;
-
-    if (S.token) {
-      try {
-        const t = await api.get(A.actions.resolveTable, { [A.params.tableToken]: S.token });
-        S.table = { name: String(pick(t, ['tableName', 'name', 'label', 'tableNumber', 'table'], 'Table')) };
-        store.set('last_token', S.token);
-      } catch (e) { S.table = null; toast('Table link galat/expired hai: ' + e.message); }
-    }
-    if ($('tableLabel')) $('tableLabel').textContent = S.table ? S.table.name : 'Table scan karo';
-    if (!S.cfg.open) toast(S.cfg.message || 'Abhi orders band hain');
-
-    S.cart = store.get(cartKey(), {});
-    // cart ko latest menu se reconcile karo
-    Object.keys(S.cart).forEach((id) => {
-      const m = S.menu.find((x) => x.id === id);
-      if (!m || !m.available) delete S.cart[id];
-      else { S.cart[id].price = m.price; S.cart[id].name = m.name; }
-    });
-    saveCart();
-
-    renderTabs(); renderMenu(); renderCart();
-    if (S.active) { refreshOrder(); startPolling(); }
+    openModal(el.notifModal);
   }
 
-  /* ================= 13. SELF TEST: __diag() ================= */
-  window.__diag = async function (opts) {
-    opts = opts || {};
-    const rows = [];
-    const add = (check, ok, detail) => rows.push({ check, result: ok === 'warn' ? 'WARN' : ok ? 'PASS' : 'FAIL', detail: detail || '' });
-
-    // A) config
-    add('API_URL set', !!getApiUrl(), getApiUrl() || 'frontend-config.js check karo');
-
-    // B) DOM IDs
-    Object.entries(A.ids).forEach(([key, id]) => {
-      const found = !!document.getElementById(id);
-      add('DOM #' + id, found ? true : (A.optionalIds.includes(key) ? 'warn' : false), found ? '' : 'index.html mein nahi mila');
-    });
-
-    // C) backend
-    const run = async (label, fn, validate) => {
-      try { const d = await fn(); const msg = validate(d); add(label, msg === true, msg === true ? '' : msg); return d; }
-      catch (e) { add(label, false, e.message); }
-    };
-
-    await run('GET ' + A.actions.publicConfig, () => api.get(A.actions.publicConfig),
-      (d) => (d && typeof d === 'object') ? true : 'object nahi mila');
-
-    const menu = await run('GET ' + A.actions.menu, () => api.get(A.actions.menu), (d) => {
-      const items = normMenu(d);
-      if (!items.length) return 'koi item nahi mila (id field ka naam check karo). Raw: ' + JSON.stringify(d).slice(0, 150);
-      const bad = items.filter((i) => !i.name || !(i.price >= 0));
-      return bad.length ? bad.length + ' items mein name/price galat' : true;
-    });
-
-    const tok = S.token;
-    if (tok) {
-      await run('GET ' + A.actions.resolveTable, () => api.get(A.actions.resolveTable, { [A.params.tableToken]: tok }),
-        (d) => (d && typeof d === 'object') ? true : 'object nahi mila');
-    } else add('GET ' + A.actions.resolveTable, 'warn', 'URL mein ?t=TOKEN nahi — skip');
-
-    // bogus token must fail gracefully (error JSON), not crash
-    try { await api.get(A.actions.resolveTable, { [A.params.tableToken]: 'INVALID_TOKEN_XYZ' }); add('Invalid token rejected', false, 'backend ne invalid token accept kar liya!'); }
-    catch (e) { add('Invalid token rejected', true, e.message); }
-
-    // coupon bogus
-    try {
-      const d = await api.post(A.actions.validateCoupon, { code: 'NOPE_NOT_REAL', subtotal: 100, items: [] });
-      add('Bogus coupon rejected', pick(d, ['valid', 'isValid'], true) === false, JSON.stringify(d).slice(0, 120));
-    } catch (e) { add('Bogus coupon rejected', true, e.message); }
-
-    // D) real order (opt-in — REAL order + email banega)
-    if (opts.order && tok && menu) {
-      const it = normMenu(menu).find((i) => i.available);
-      if (it) {
-        try {
-          const d = await api.post(A.actions.createOrder, { token: tok, customerName: 'DIAG TEST', customerPhone: '', note: 'diag test - ignore',
-            items: [{ id: it.id, qty: 1 }], couponCode: '', requestId: uid() });
-          const oid = pick(d, ['orderId', 'id'], '');
-          add('POST createOrder', !!oid, 'orderId=' + oid + ' (sheet se test row delete kar do)');
-          if (oid) {
-            const p = { [A.params.trackOrderId]: oid, [A.params.tableToken]: tok };
-            const tt = pick(d, ['trackingToken', 'trackToken', 'token'], '');
-            if (tt) p[A.params.trackToken] = tt;
-            await run('GET ' + A.actions.trackOrder, () => api.get(A.actions.trackOrder, p),
-              (x) => normOrder(x).id ? true : 'order id/status nahi mila. Raw: ' + JSON.stringify(x).slice(0, 150));
-          }
-        } catch (e) { add('POST createOrder', false, e.message); }
+  /* ================================================================ */
+  /* Event binding                                                     */
+  /* ================================================================ */
+  function bindEvents() {
+    el.aboutBtn.addEventListener('click', function () { openModal(el.aboutModal); });
+    bindModal(el.aboutModal);
+    bindModal(el.notifModal);
+    document.addEventListener('keydown', function (e) {
+      if (e.key === 'Escape') {
+        if (!el.aboutModal.hidden) closeModal(el.aboutModal);
+        if (!el.notifModal.hidden) closeModal(el.notifModal);
       }
-    } else add('POST createOrder', 'warn', 'skip (chalane ke liye __diag({order:true}))');
+    });
 
-    console.table(rows);
-    const fails = rows.filter((r) => r.result === 'FAIL').length;
-    console.log(fails ? `❌ ${fails} FAIL — table ka detail column dekho aur mujhe bhejo` : '✅ Sab PASS');
-    return rows;
-  };
+    el.searchInput.addEventListener('input', function () {
+      state.searchTerm = el.searchInput.value;
+      el.searchClearBtn.hidden = !state.searchTerm;
+      applyFilters();
+    });
+    el.searchClearBtn.addEventListener('click', function () {
+      el.searchInput.value = '';
+      state.searchTerm = '';
+      el.searchClearBtn.hidden = true;
+      applyFilters();
+      el.searchInput.focus();
+    });
+    el.vegOnlyToggle.addEventListener('change', function () {
+      state.vegOnly = el.vegOnlyToggle.checked;
+      applyFilters();
+    });
 
-  document.addEventListener('DOMContentLoaded', init);
+    el.activeOrderBanner.addEventListener('click', function () {
+      if (!state.currentOrder) return;
+      renderTrack(state.currentOrder);
+      el.trackSuccess.hidden = true;
+      switchView('track');
+      if (state.currentOrder.orderStatus === 'NEW' || state.currentOrder.orderStatus === 'PREPARING') {
+        startPolling();
+      }
+      fetchOrderStatus(true);
+    });
+
+    el.viewCartBtn.addEventListener('click', function () { switchView('cart'); });
+    el.cartBackBtn.addEventListener('click', function () { switchView('menu'); });
+    el.cartAddMoreBtn.addEventListener('click', function () { switchView('menu'); });
+    el.clearCartBtn.addEventListener('click', function () {
+      if (!state.cart.size) return;
+      clearCart();
+      showToast('Cart cleared.', 'success');
+    });
+
+    el.specialRequest.addEventListener('input', function () {
+      const max = (state.publicConfig && state.publicConfig.maxSpecialRequestLength) || 300;
+      el.specialCount.textContent = el.specialRequest.value.length + '/' + max;
+    });
+
+    el.applyCouponBtn.addEventListener('click', applyCoupon);
+    el.removeCouponBtn.addEventListener('click', removeCoupon);
+
+    el.orderForm.addEventListener('submit', submitOrder);
+
+    el.trackBackBtn.addEventListener('click', function () { switchView('menu'); });
+    el.trackRefreshBtn.addEventListener('click', function () { fetchOrderStatus(true); });
+    el.newOrderBtn.addEventListener('click', function () { switchView('menu'); });
+  }
+
+  document.addEventListener('DOMContentLoaded', boot);
 })();
