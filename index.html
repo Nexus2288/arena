@@ -1,0 +1,372 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="utf-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover">
+  <meta name="theme-color" content="#2b1a12">
+  <meta name="robots" content="noindex, nofollow">
+  <!-- The page URL contains the table token: never leak it to other sites through the Referer header. -->
+  <meta name="referrer" content="no-referrer">
+  <meta http-equiv="Content-Security-Policy" content="default-src 'none'; script-src 'self'; style-src 'self' https://fonts.googleapis.com; font-src https://fonts.gstatic.com; img-src 'self' https: data:; connect-src https://script.google.com https://script.googleusercontent.com; base-uri 'none'">
+  <title>Love Over Coffee</title>
+  <link rel="icon" href="data:,">
+  <link rel="preconnect" href="https://fonts.googleapis.com">
+  <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+  <link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700&family=Playfair+Display:wght@600;700&display=swap">
+  <link rel="stylesheet" href="style.css">
+</head>
+<body>
+
+  <noscript>
+    <div class="fatal">
+      <div class="fatal__card">
+        <h2 class="fatal__title">JavaScript is required</h2>
+        <p class="fatal__text">Please enable JavaScript in your browser to see the menu and place an order.</p>
+      </div>
+    </div>
+  </noscript>
+
+  <!-- ============ Loading screen ============ -->
+  <div id="screenLoading" class="splash" role="status" aria-live="polite">
+    <div class="spinner" aria-hidden="true"></div>
+    <p class="splash__text">Preparing your table&hellip;</p>
+  </div>
+
+  <!-- ============ Fatal error screen (invalid table, offline, bad config) ============ -->
+  <div id="screenError" class="fatal" hidden>
+    <div class="fatal__card" role="alert">
+      <div class="fatal__icon" aria-hidden="true">!</div>
+      <h2 id="errorTitle" class="fatal__title">Something went wrong</h2>
+      <p id="errorMessage" class="fatal__text"></p>
+      <button type="button" id="errorRetryBtn" class="btn-primary" hidden>Try again</button>
+    </div>
+  </div>
+
+  <!-- ============ Main app ============ -->
+  <div id="app" class="page" hidden>
+
+    <header class="topbar">
+      <div class="brand">
+        <img id="cafeLogo" class="brand__logo" alt="" hidden>
+        <div class="brand__text">
+          <h1 id="cafeName" class="brand__name">Love Over Coffee</h1>
+          <p id="cafeTagline" class="brand__tagline"></p>
+        </div>
+      </div>
+      <div class="topbar__actions">
+        <span id="tableBadge" class="table-badge">Table <strong id="tableNumber">&ndash;</strong></span>
+        <button type="button" id="aboutBtn" class="pill-btn">About us</button>
+      </div>
+    </header>
+
+    <!-- ================= MENU VIEW ================= -->
+    <main id="viewMenu">
+
+      <section id="heroSection" class="hero">
+        <img id="heroImage" class="hero__img" alt="" hidden>
+        <div class="hero__overlay">
+          <p class="hero__eyebrow">Welcome</p>
+          <h2 class="hero__title">Fresh from our kitchen to your table</h2>
+          <p class="hero__sub">Ordering for <strong id="heroTableText">your table</strong></p>
+        </div>
+      </section>
+
+      <button type="button" id="activeOrderBanner" class="banner" hidden>
+        <span class="banner__dot" aria-hidden="true"></span>
+        <span class="banner__text">
+          <strong id="activeOrderTitle">You have an active order</strong>
+          <small id="activeOrderSub">Tap to track it</small>
+        </span>
+        <span class="banner__arrow" aria-hidden="true">&rsaquo;</span>
+      </button>
+
+      <section id="notifyCard" class="notify-card" hidden>
+        <div class="notify-card__text">
+          <strong>Offers &amp; updates</strong>
+          <small id="notifyText">Get cafe offers while this page is open.</small>
+        </div>
+        <button type="button" id="notifyBtn" class="btn-small">Allow Notifications</button>
+      </section>
+
+      <div id="menuTools" class="tools">
+        <div class="search">
+          <svg class="search__icon" viewBox="0 0 24 24" width="18" height="18" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><circle cx="11" cy="11" r="7"/><path d="M21 21l-4.3-4.3"/></svg>
+          <input id="searchInput" type="search" placeholder="Search coffee, snacks, desserts&hellip;" autocomplete="off" maxlength="40" aria-label="Search the menu">
+          <button type="button" id="searchClearBtn" class="search__clear" aria-label="Clear search" hidden>&times;</button>
+        </div>
+        <nav id="categoryBar" class="chips" aria-label="Menu categories"></nav>
+        <label class="veg-filter">
+          <input type="checkbox" id="vegOnlyToggle">
+          <span class="veg-mark" aria-hidden="true"><i></i></span>
+          <span>Veg only</span>
+        </label>
+      </div>
+
+      <div id="menuList" class="menu"></div>
+
+      <div id="menuEmpty" class="empty" hidden>
+        <p id="menuEmptyText">No items match your search.</p>
+      </div>
+    </main>
+
+    <!-- ================= CART VIEW ================= -->
+    <section id="viewCart" hidden>
+      <div class="page-head">
+        <button type="button" id="cartBackBtn" class="back-btn">&lsaquo; Menu</button>
+        <h2 class="page-title">Your order</h2>
+        <span class="page-head__table">Table <strong id="cartTableNumber">&ndash;</strong></span>
+      </div>
+
+      <div class="card">
+        <ul id="cartItems" class="cart-lines"></ul>
+        <div id="cartEmpty" class="empty empty--inline" hidden>
+          <p>Your cart is empty.</p>
+        </div>
+        <div class="cart-tools">
+          <button type="button" id="cartAddMoreBtn" class="link-btn link-btn--strong">+ Add more items</button>
+          <button type="button" id="clearCartBtn" class="link-btn">Clear cart</button>
+        </div>
+      </div>
+
+      <form id="orderForm" class="card" novalidate autocomplete="on">
+        <h3 class="section-title">Your details</h3>
+
+        <div class="field">
+          <label for="customerName">Name</label>
+          <input id="customerName" name="name" type="text" maxlength="60" autocomplete="name" placeholder="Your name" required>
+          <p id="customerNameError" class="field-msg is-error" hidden></p>
+        </div>
+
+        <div class="field">
+          <label for="customerMobile">Mobile number</label>
+          <input id="customerMobile" name="tel" type="tel" inputmode="numeric" maxlength="14" autocomplete="tel" placeholder="10-digit mobile number" required>
+          <p id="customerMobileError" class="field-msg is-error" hidden></p>
+        </div>
+
+        <div class="field">
+          <label for="formTable">Table</label>
+          <div id="formTable" class="readonly-field">Table &ndash;</div>
+        </div>
+
+        <div class="field">
+          <label for="specialRequest">Special instructions <span class="optional">(optional)</span></label>
+          <textarea id="specialRequest" name="special" rows="3" maxlength="300" placeholder="Less sugar, extra spicy, no onions&hellip;"></textarea>
+          <small id="specialCount" class="char-count">0/300</small>
+        </div>
+
+        <div class="field">
+          <label for="couponCode">Coupon code <span class="optional">(optional)</span></label>
+          <div class="coupon-row">
+            <input id="couponCode" name="coupon" type="text" maxlength="20" autocapitalize="characters" autocomplete="off" spellcheck="false" placeholder="e.g. CAFE5">
+            <button type="button" id="applyCouponBtn" class="btn-outline">Apply</button>
+            <button type="button" id="removeCouponBtn" class="btn-outline" hidden>Remove</button>
+          </div>
+          <p id="couponMessage" class="field-msg" role="status" hidden></p>
+          <p id="couponTiersTitle" class="tiers-title" hidden>Available offers</p>
+          <ul id="couponTiers" class="tiers"></ul>
+        </div>
+
+        <section class="summary" aria-label="Bill summary">
+          <div class="summary__row"><span>Subtotal</span><span id="sumSubtotal"></span></div>
+          <div id="sumDiscountRow" class="summary__row summary__row--discount" hidden>
+            <span id="sumDiscountLabel">Discount</span><span id="sumDiscount"></span>
+          </div>
+          <div class="summary__row summary__row--total"><span>Total</span><strong id="sumTotal"></strong></div>
+          <p class="summary__note">The final amount is confirmed by our system when you place the order.</p>
+        </section>
+
+        <p id="formError" class="form-error" role="alert" hidden></p>
+      </form>
+
+      <div id="checkoutBar" class="checkout-bar">
+        <div class="checkout-bar__total">
+          <small>Total</small>
+          <strong id="checkoutTotal"></strong>
+        </div>
+        <button type="submit" id="placeOrderBtn" form="orderForm" class="btn-primary">Place order</button>
+      </div>
+    </section>
+
+    <!-- ================= TRACK VIEW ================= -->
+    <section id="viewTrack" hidden>
+      <div class="page-head">
+        <button type="button" id="trackBackBtn" class="back-btn">&lsaquo; Menu</button>
+        <h2 class="page-title">Track order</h2>
+        <span class="page-head__table">Table <strong id="trackTableNumber">&ndash;</strong></span>
+      </div>
+
+      <div id="trackSuccess" class="notice notice--success" role="status" hidden>
+        <strong>Order placed!</strong> Our kitchen has received your order.
+      </div>
+
+      <div class="card track-card">
+        <div class="track-meta">
+          <div><small>Order ID</small><strong id="trackOrderId"></strong></div>
+          <div><small>Placed at</small><strong id="trackTime"></strong></div>
+        </div>
+
+        <ol id="trackSteps" class="steps" data-status="NEW" aria-label="Order progress">
+          <li class="step" data-step="NEW"><span class="step__dot">1</span><span class="step__label">Order placed</span></li>
+          <li class="step" data-step="PREPARING"><span class="step__dot">2</span><span class="step__label">Preparing</span></li>
+          <li class="step" data-step="COMPLETED"><span class="step__dot">3</span><span class="step__label">Completed</span></li>
+        </ol>
+
+        <p id="trackStatusText" class="track-status-text"></p>
+        <p id="trackStatusUpdated" class="track-updated"></p>
+
+        <div id="trackCancelled" class="notice notice--error" hidden>
+          This order was cancelled. Please speak to our staff.
+        </div>
+      </div>
+
+      <div class="card">
+        <h3 class="section-title">Items</h3>
+        <ul id="trackItems" class="track-lines"></ul>
+        <section class="summary" aria-label="Order total">
+          <div class="summary__row"><span>Subtotal</span><span id="trackSubtotal"></span></div>
+          <div id="trackDiscountRow" class="summary__row summary__row--discount" hidden>
+            <span id="trackDiscountLabel">Discount</span><span id="trackDiscount"></span>
+          </div>
+          <div class="summary__row summary__row--total"><span>Total</span><strong id="trackTotal"></strong></div>
+        </section>
+        <div id="trackSpecialBox" class="track-special" hidden>
+          <small>Special instructions</small>
+          <p id="trackSpecial"></p>
+        </div>
+      </div>
+
+      <div class="track-actions">
+        <button type="button" id="trackRefreshBtn" class="btn-outline">Refresh status</button>
+        <button type="button" id="newOrderBtn" class="btn-primary">Order more</button>
+      </div>
+      <p id="trackHint" class="track-hint">This page updates automatically while it is open.</p>
+    </section>
+
+    <!-- ================= Floating cart bar ================= -->
+    <div id="cartBar" class="cart-bar" hidden>
+      <button type="button" id="viewCartBtn" class="cart-bar__btn">
+        <span id="cartBarCount" class="cart-bar__count"></span>
+        <span id="cartBarTotal" class="cart-bar__total"></span>
+        <span class="cart-bar__cta">View cart &rsaquo;</span>
+      </button>
+    </div>
+  </div>
+
+  <!-- ============ About Us modal ============ -->
+  <div id="aboutModal" class="modal" role="dialog" aria-modal="true" aria-labelledby="aboutName" hidden>
+    <div class="modal__backdrop" data-close-modal></div>
+    <div class="modal__sheet about">
+      <button type="button" class="modal__close" data-close-modal aria-label="Close">&times;</button>
+      <img id="aboutLogo" class="about__logo" alt="" hidden>
+      <h2 id="aboutName" class="about__name"></h2>
+      <p id="aboutTagline" class="about__tagline"></p>
+      <p id="aboutText" class="about__text"></p>
+      <a id="aboutReviewBtn" class="btn-primary about__review" href="#" target="_blank" rel="noopener noreferrer" hidden>&#9733; Rate us on Google</a>
+      <div class="social" aria-label="Follow us">
+        <a id="aboutInstagram" class="social__link" href="#" target="_blank" rel="noopener noreferrer" aria-label="Instagram" hidden>
+          <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><rect x="3" y="3" width="18" height="18" rx="5"/><circle cx="12" cy="12" r="4"/><circle cx="17.5" cy="6.5" r="1" fill="currentColor" stroke="none"/></svg>
+        </a>
+        <a id="aboutFacebook" class="social__link" href="#" target="_blank" rel="noopener noreferrer" aria-label="Facebook" hidden>
+          <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M18 2h-3a5 5 0 0 0-5 5v3H7v4h3v8h4v-8h3l1-4h-4V7a1 1 0 0 1 1-1h3z"/></svg>
+        </a>
+        <a id="aboutYoutube" class="social__link" href="#" target="_blank" rel="noopener noreferrer" aria-label="YouTube" hidden>
+          <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M22.54 6.42a2.78 2.78 0 0 0-1.94-2C18.88 4 12 4 12 4s-6.88 0-8.6.46a2.78 2.78 0 0 0-1.94 2A29 29 0 0 0 1 11.75a29 29 0 0 0 .46 5.33A2.78 2.78 0 0 0 3.4 19c1.72.46 8.6.46 8.6.46s6.88 0 8.6-.46a2.78 2.78 0 0 0 1.94-2 29 29 0 0 0 .46-5.25 29 29 0 0 0-.46-5.33z"/><polygon points="9.75 15.02 15.5 11.75 9.75 8.48 9.75 15.02"/></svg>
+        </a>
+        <a id="aboutX" class="social__link" href="#" target="_blank" rel="noopener noreferrer" aria-label="X" hidden>
+          <svg viewBox="0 0 24 24" fill="currentColor" aria-hidden="true"><path d="M4 4l6.5 8.5L4 20h2l5.4-6.2L16 20h4l-6.8-9L19.5 4h-2l-5 5.7L8 4H4z"/></svg>
+        </a>
+      </div>
+    </div>
+  </div>
+
+  <!-- ============ In-app notification modal ============ -->
+  <div id="notifModal" class="modal" role="dialog" aria-modal="true" aria-labelledby="notifTitle" hidden>
+    <div class="modal__backdrop" data-close-modal></div>
+    <div class="modal__sheet notif">
+      <button type="button" class="modal__close" data-close-modal aria-label="Close">&times;</button>
+      <img id="notifImage" class="notif__image" alt="" hidden>
+      <h2 id="notifTitle" class="notif__title"></h2>
+      <p id="notifMessage" class="notif__message"></p>
+      <a id="notifLink" class="btn-primary" href="#" target="_blank" rel="noopener noreferrer" hidden></a>
+    </div>
+  </div>
+
+  <div id="toastHost" class="toast-host" aria-live="polite" aria-atomic="false"></div>
+
+  <!-- ============ Templates (script.js clones these and fills them with textContent) ============ -->
+  <template id="tplChip">
+    <button type="button" class="chip" data-role="chip"></button>
+  </template>
+
+  <template id="tplCategory">
+    <section class="category-section">
+      <h2 class="category-title" data-role="title"></h2>
+      <div class="category-items" data-role="items"></div>
+    </section>
+  </template>
+
+  <template id="tplMenuCard">
+    <article class="menu-card">
+      <div class="menu-card__main">
+        <div class="menu-card__head">
+          <span class="veg-mark" data-role="vegMark" role="img"><i></i></span>
+          <h3 class="item-name" data-role="name"></h3>
+          <span class="item-tag" data-role="tag" hidden></span>
+        </div>
+        <p class="item-tagline" data-role="tagline"></p>
+        <div class="menu-card__foot">
+          <span class="item-price" data-role="price"></span>
+          <span class="unavail-label" data-role="unavailable" hidden>Currently unavailable</span>
+        </div>
+      </div>
+      <div class="menu-card__action" data-role="action">
+        <button type="button" class="btn-add" data-role="addBtn">ADD</button>
+        <div class="qty-control" data-role="qtyControl" hidden>
+          <button type="button" class="qty-btn" data-role="minusBtn" aria-label="Decrease quantity">&minus;</button>
+          <span class="qty-value" data-role="qty">1</span>
+          <button type="button" class="qty-btn" data-role="plusBtn" aria-label="Increase quantity">+</button>
+        </div>
+      </div>
+    </article>
+  </template>
+
+  <template id="tplCartLine">
+    <li class="cart-line">
+      <span class="veg-mark" data-role="vegMark" role="img"><i></i></span>
+      <div class="cart-line__info">
+        <p class="cart-line__name" data-role="name"></p>
+        <p class="cart-line__unit" data-role="unit"></p>
+      </div>
+      <div class="qty-control">
+        <button type="button" class="qty-btn" data-role="minusBtn" aria-label="Decrease quantity">&minus;</button>
+        <span class="qty-value" data-role="qty">1</span>
+        <button type="button" class="qty-btn" data-role="plusBtn" aria-label="Increase quantity">+</button>
+      </div>
+      <div class="cart-line__side">
+        <span class="cart-line__total" data-role="lineTotal"></span>
+        <button type="button" class="link-btn" data-role="removeBtn">Remove</button>
+      </div>
+    </li>
+  </template>
+
+  <template id="tplTrackLine">
+    <li class="track-line">
+      <span class="track-line__qty" data-role="qty"></span>
+      <span class="track-line__name" data-role="name"></span>
+      <span class="track-line__total" data-role="lineTotal"></span>
+    </li>
+  </template>
+
+  <template id="tplTier">
+    <li>
+      <button type="button" class="tier-chip" data-role="tierBtn">
+        <strong data-role="code"></strong>
+        <span data-role="desc"></span>
+      </button>
+    </li>
+  </template>
+
+  <script src="frontend-config.js"></script>
+  <script src="script.js" defer></script>
+</body>
+</html>
