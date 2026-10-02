@@ -911,15 +911,19 @@
     });
   }
 
-  /* ================================================================ */
+    /* ================================================================ */
   /* Notifications (in-app, poll based)                                */
-  /* ASSUMPTION (Notifications.gs not available when writing this):    */
-  /*  - saveNotificationSubscription payload: {customerKey, permission,*/
-  /*    userAgent}                                                     */
-  /*  - getCustomerNotifications payload: {customerKey}                */
-  /*  - response accepted in 3 possible shapes defensively below.      */
-  /*  VERIFY against the real Notifications.gs once available.         */
+  /* Contract (confirmed from Notifications.gs):                       */
+  /*   saveNotificationSubscription: {tableToken, customerKey,         */
+  /*     permission, endpoint?, pushKeys?, userAgent?} -> {subscribed} */
+  /*   getCustomerNotifications: {customerKey, since} ->                */
+  /*     {notifications[], serverTime}. since='' => no notifications,  */
+  /*     only serverTime (baseline). since set => notifications with   */
+  /*     createdAt >= since (inclusive, so dedupe by notificationId).  */
   /* ================================================================ */
+  const NOTIF_SINCE_STORAGE = 'loc_notif_since';
+  const NOTIF_SEEN_STORAGE = 'loc_notif_seen_ids';
+
   function maybeShowNotifyCard() {
     let opted = '';
     try { opted = localStorage.getItem(NOTIF_OPT_STORAGE) || ''; } catch (e) { /* ignore */ }
@@ -931,6 +935,7 @@
     el.notifyBtn.addEventListener('click', function () {
       el.notifyBtn.disabled = true;
       apiCall('saveNotificationSubscription', {
+        tableToken: state.tableToken,
         customerKey: state.customerKey,
         permission: 'granted',
         userAgent: navigator.userAgent
@@ -939,6 +944,7 @@
         try { localStorage.setItem(NOTIF_OPT_STORAGE, 'yes'); } catch (e) { /* ignore */ }
         el.notifyCard.hidden = true;
         showToast('Notifications enabled. Keep this page open to receive offers.', 'success');
+        establishNotificationBaseline_();
       }).catch(function (err) {
         showToast(err.message, 'error');
       }).finally(function () {
@@ -947,8 +953,31 @@
     });
   }
 
+  function getNotifSince_() {
+    try { return localStorage.getItem(NOTIF_SINCE_STORAGE) || ''; } catch (e) { return ''; }
+  }
+  function setNotifSince_(stamp) {
+    try { localStorage.setItem(NOTIF_SINCE_STORAGE, stamp); } catch (e) { /* ignore */ }
+  }
+  function getSeenNotifIds_() {
+    try { return JSON.parse(localStorage.getItem(NOTIF_SEEN_STORAGE) || '[]'); } catch (e) { return []; }
+  }
+  function addSeenNotifIds_(ids) {
+    const merged = getSeenNotifIds_().concat(ids).slice(-50);
+    try { localStorage.setItem(NOTIF_SEEN_STORAGE, JSON.stringify(merged)); } catch (e) { /* ignore */ }
+  }
+
+  /** First call ever (or after opting in): just fetch serverTime, show nothing old. */
+  function establishNotificationBaseline_() {
+    if (getNotifSince_()) return;
+    apiCall('getCustomerNotifications', { customerKey: state.customerKey, since: '' })
+      .then(function (data) { setNotifSince_(data.serverTime); })
+      .catch(function () { /* best-effort */ });
+  }
+
   function startNotificationPolling() {
     if (!state.publicConfig) return;
+    if (state.notifOptedIn) establishNotificationBaseline_();
     const intervalMs = Math.max((state.publicConfig.pollSeconds || 10), 10) * 3 * 1000;
     pollNotifications();
     state.notifTimer = setInterval(pollNotifications, intervalMs);
@@ -956,20 +985,19 @@
 
   function pollNotifications() {
     if (!state.notifOptedIn) return;
-    let seen = [];
-    try { seen = JSON.parse(localStorage.getItem(SEEN_NOTIF_STORAGE) || '[]'); } catch (e) { seen = []; }
-    apiCall('getCustomerNotifications', { customerKey: state.customerKey })
+    const since = getNotifSince_();
+    if (!since) { establishNotificationBaseline_(); return; }
+    apiCall('getCustomerNotifications', { customerKey: state.customerKey, since: since })
       .then(function (data) {
-        const list = Array.isArray(data) ? data
-          : (data && Array.isArray(data.notifications)) ? data.notifications
-          : (data && data.notification) ? [data.notification]
-          : [];
-        const fresh = list.filter(function (n) { return n && n.notificationId && seen.indexOf(n.notificationId) === -1; });
+        const seen = getSeenNotifIds_();
+        const fresh = (data.notifications || []).filter(function (n) {
+          return n && n.notificationId && seen.indexOf(n.notificationId) === -1;
+        });
         if (fresh.length) {
           showNotification(fresh[fresh.length - 1]);
-          const updatedSeen = seen.concat(fresh.map(function (n) { return n.notificationId; })).slice(-50);
-          try { localStorage.setItem(SEEN_NOTIF_STORAGE, JSON.stringify(updatedSeen)); } catch (e) { /* ignore */ }
+          addSeenNotifIds_(fresh.map(function (n) { return n.notificationId; }));
         }
+        setNotifSince_(data.serverTime);
       })
       .catch(function () { /* notifications are best-effort: fail silently */ });
   }
