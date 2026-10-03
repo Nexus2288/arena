@@ -199,6 +199,21 @@
         <strong>Order placed!</strong> Our kitchen has received your order.
       </div>
 
+<div id="trackRewardBox" class="reward-card reward-card--track" hidden>
+  <div class="reward-card__head">
+    <span class="reward-card__icon" aria-hidden="true">&#127873;</span>
+    <div><small>YOUR REWARD</small><strong>Coupon for your next order</strong></div>
+  </div>
+  <div class="reward-card__code">
+    <div><small>COUPON CODE</small><strong id="trackRewardCode"></strong></div>
+    <button type="button" id="trackRewardCopyBtn" class="btn-small">Copy</button>
+  </div>
+  <p class="reward-card__terms">
+    <strong id="trackRewardPercent"></strong> on orders of <span id="trackRewardMin"></span> or more
+  </p>
+  <p class="reward-card__note" id="trackRewardStatusNote"></p>
+</div>
+      
       <div class="card track-card">
         <div class="track-meta">
           <div><small>Order ID</small><strong id="trackOrderId"></strong></div>
