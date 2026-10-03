@@ -545,3 +545,43 @@ body.has-cart-bar .page { padding-bottom: calc(104px + var(--safe-bottom)); }
 @media (prefers-reduced-motion: reduce) {
   *, *::before, *::after { animation-duration: 0.01ms !important; animation-iteration-count: 1 !important; transition-duration: 0.01ms !important; }
 }
+/* ---------- Order confirmed modal ---------- */
+.confirm-sheet { text-align: center; }
+.confirm-check {
+  width: 56px; height: 56px; margin: 0 auto 10px; border-radius: 50%;
+  background: var(--green-bg); color: var(--green); font-size: 28px; font-weight: 700;
+  display: flex; align-items: center; justify-content: center;
+}
+.confirm-eyebrow { font-size: 11px; font-weight: 700; letter-spacing: 1.5px; color: var(--green); }
+.confirm-title { font-family: var(--font-head); font-size: 26px; margin: 4px 0 2px; }
+.confirm-sub { color: var(--muted); font-size: 13px; margin-bottom: 18px; }
+.confirm-box { background: var(--cream); border: 1px solid var(--line); border-radius: var(--radius-sm); padding: 12px; margin-bottom: 16px; }
+.confirm-box small { display: block; color: var(--muted); font-size: 11px; letter-spacing: 0.6px; }
+.confirm-box strong { font-size: 18px; color: var(--espresso); }
+.confirm-done { width: 100%; margin-top: 4px; }
+
+/* ---------- Reward coupon card ---------- */
+.reward-card {
+  text-align: left; background: linear-gradient(160deg, var(--espresso), #241309);
+  border: 1px solid #4a2f1c; border-radius: var(--radius); padding: 16px; color: #f3e6d6; margin: 0 0 16px;
+}
+.reward-card__head { display: flex; align-items: center; gap: 10px; margin-bottom: 14px; }
+.reward-card__icon {
+  width: 38px; height: 38px; flex: 0 0 auto; border-radius: 10px; background: rgba(224, 169, 92, 0.18);
+  display: flex; align-items: center; justify-content: center; font-size: 18px;
+}
+.reward-card__head small { display: block; color: var(--gold); font-size: 10px; letter-spacing: 1.2px; font-weight: 700; }
+.reward-card__head strong { font-size: 15px; color: #fff; font-family: var(--font-head); }
+.reward-card__code {
+  display: flex; align-items: center; justify-content: space-between; gap: 10px;
+  background: rgba(255, 255, 255, 0.06); border: 1px dashed var(--gold); border-radius: var(--radius-sm);
+  padding: 10px 14px; margin-bottom: 10px;
+}
+.reward-card__code small { display: block; color: #c9b8a6; font-size: 10px; letter-spacing: 1px; }
+.reward-card__code strong { font-size: 17px; color: var(--gold); letter-spacing: 0.5px; }
+.reward-card .btn-small { background: var(--gold); color: var(--espresso); flex: 0 0 auto; }
+.reward-card__terms { text-align: center; font-size: 13px; color: #f3e6d6; margin-bottom: 6px; }
+.reward-card__terms strong { color: var(--gold); }
+.reward-card__note { text-align: center; font-size: 11px; color: #c9b8a6; line-height: 1.5; }
+.reward-card__note strong { color: #fff; }
+.reward-card--track { margin: 14px 16px 0; }
