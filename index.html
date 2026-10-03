@@ -155,10 +155,11 @@
         </div>
 
         <div class="field">
-          <label for="couponCode">&#127873; Coupon code <span class="optional">(optional)</span></label>
-          <div class="coupon-row">
-            <input id="couponCode" name="coupon" type="text" maxlength="20" autocapitalize="characters" autocomplete="off" spellcheck="false" placeholder="e.g. CAFE5">
-            <button type="button" id="applyCouponBtn" class="btn-outline">Apply</button>
+  <label for="couponCode">&#127873; Have a coupon?</label>
+  <p class="field-msg">Apply your next-order coupon here.</p>
+  <div class="coupon-row">
+    <input id="couponCode" name="coupon" type="text" maxlength="20" autocapitalize="characters" autocomplete="off" spellcheck="false" placeholder="Enter coupon code">
+    <button type="button" id="applyCouponBtn" class="btn-outline">Apply</button>
             <button type="button" id="removeCouponBtn" class="btn-outline" hidden>Remove</button>
           </div>
           <p id="couponMessage" class="field-msg" role="status" hidden></p>
