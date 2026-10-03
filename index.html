@@ -155,7 +155,7 @@
         </div>
 
         <div class="field">
-          <label for="couponCode">Coupon code <span class="optional">(optional)</span></label>
+          <label for="couponCode">&#127873; Coupon code <span class="optional">(optional)</span></label>
           <div class="coupon-row">
             <input id="couponCode" name="coupon" type="text" maxlength="20" autocapitalize="characters" autocomplete="off" spellcheck="false" placeholder="e.g. CAFE5">
             <button type="button" id="applyCouponBtn" class="btn-outline">Apply</button>
@@ -253,6 +253,40 @@
   </div>
 
   <!-- ============ About Us modal ============ -->
+  <div id="orderConfirmedModal" class="modal" role="dialog" aria-modal="true" aria-labelledby="orderConfirmedTitle" hidden>
+  <div class="modal__backdrop"></div>
+  <div class="modal__sheet confirm-sheet">
+    <div class="confirm-check" aria-hidden="true">&#10003;</div>
+    <p class="confirm-eyebrow">ORDER CONFIRMED</p>
+    <h2 id="orderConfirmedTitle" class="confirm-title">Thank you!</h2>
+    <p class="confirm-sub">Your order has been received successfully.</p>
+
+    <div class="confirm-box">
+      <small>ORDER NUMBER</small>
+      <strong id="confirmOrderId"></strong>
+    </div>
+
+    <div id="confirmRewardBox" class="reward-card" hidden>
+      <div class="reward-card__head">
+        <span class="reward-card__icon" aria-hidden="true">&#127873;</span>
+        <div><small>NEXT ORDER</small><strong>Your reward is ready</strong></div>
+      </div>
+      <div class="reward-card__code">
+        <div><small>COUPON CODE</small><strong id="confirmRewardCode"></strong></div>
+        <button type="button" id="confirmRewardCopyBtn" class="btn-small">Copy</button>
+      </div>
+      <p class="reward-card__terms">
+        <strong id="confirmRewardPercent"></strong> on orders of <span id="confirmRewardMin"></span> or more
+      </p>
+      <p class="reward-card__note">
+        Take a screenshot or save this coupon and use it on your next order.<br>
+        Valid till <strong id="confirmRewardExpiry"></strong>.
+      </p>
+    </div>
+
+    <button type="button" id="orderConfirmedDoneBtn" class="btn-primary confirm-done">Done</button>
+  </div>
+</div>
   <div id="aboutModal" class="modal" role="dialog" aria-modal="true" aria-labelledby="aboutName" hidden>
     <div class="modal__backdrop" data-close-modal></div>
     <div class="modal__sheet about">
