@@ -61,6 +61,7 @@
       <button type="button" class="tab" data-tab="orders">Orders</button>
       <button type="button" class="tab" data-tab="menu">Menu</button>
       <button type="button" class="tab" data-tab="coupons">Coupons</button>
+      <button type="button" class="tab" data-tab="rewards">Rewards</button>
       <button type="button" class="tab" data-tab="tables">Tables</button>
       <button type="button" class="tab" data-tab="customers">Customers</button>
       <button type="button" class="tab" data-tab="analytics">Analytics</button>
@@ -161,6 +162,31 @@
         </div>
       </section>
 
+<section id="tabRewards" class="tab-panel" hidden>
+  <div class="panel-head">
+    <h2>Reward tiers</h2>
+    <button type="button" id="rewardTierAddBtn" class="btn-primary btn-primary--small">+ Add tier</button>
+  </div>
+  <p class="field-msg">When a customer's order total falls in one of these ranges, they get a
+    one-time personal coupon for their NEXT order (valid 15 days).</p>
+  <div class="table-wrap">
+    <table class="data-table">
+      <thead><tr><th>Order range</th><th>Reward</th><th>Active</th><th>Actions</th></tr></thead>
+      <tbody id="rewardTiersBody"></tbody>
+    </table>
+    <p id="rewardTiersEmpty" class="empty" hidden>No reward tiers yet.</p>
+  </div>
+
+  <h2>Issued reward coupons</h2>
+  <div class="table-wrap">
+    <table class="data-table">
+      <thead><tr><th>Code</th><th>Customer</th><th>Reward</th><th>Min order</th><th>Expires</th><th>Status</th><th>Actions</th></tr></thead>
+      <tbody id="issuedRewardsBody"></tbody>
+    </table>
+    <p id="issuedRewardsEmpty" class="empty" hidden>No reward coupons issued yet.</p>
+  </div>
+</section>
+      
       <!-- ================= TABLES ================= -->
       <section id="tabTables" class="tab-panel" hidden>
         <div class="panel-head">
@@ -468,6 +494,28 @@
     </div>
   </div>
 
+<div id="rewardTierModal" class="modal" role="dialog" aria-modal="true" hidden>
+  <div class="modal__backdrop" data-close-modal></div>
+  <div class="modal__sheet">
+    <button type="button" class="modal__close" data-close-modal aria-label="Close">&times;</button>
+    <h2 id="rewardTierModalTitle">Add reward tier</h2>
+    <form id="rewardTierForm" class="card-form" novalidate>
+      <input type="hidden" id="rewardTierId">
+      <div class="field-row">
+        <div class="field"><label for="rewardTierMin">Minimum order</label>
+          <input id="rewardTierMin" type="number" min="0" step="1" required></div>
+        <div class="field"><label for="rewardTierMax">Maximum order <span class="optional">(blank = no limit)</span></label>
+          <input id="rewardTierMax" type="number" min="0" step="1"></div>
+      </div>
+      <div class="field"><label for="rewardTierPercent">Reward discount %</label>
+        <input id="rewardTierPercent" type="number" min="0.01" max="90" step="0.01" required></div>
+      <label class="checkbox-field"><input type="checkbox" id="rewardTierActive" checked><span>Active</span></label>
+      <p id="rewardTierFormError" class="form-error" role="alert" hidden></p>
+      <button type="submit" id="rewardTierSaveBtn" class="btn-primary">Save tier</button>
+    </form>
+  </div>
+</div>
+  
   <!-- ============ Table modal ============ -->
   <div id="tableModal" class="modal" role="dialog" aria-modal="true" hidden>
     <div class="modal__backdrop" data-close-modal></div>
@@ -612,6 +660,22 @@
     </tr>
   </template>
 
+<template id="tplRewardTierRow">
+  <tr>
+    <td data-role="range"></td>
+    <td data-role="reward"></td>
+    <td><label class="switch"><input type="checkbox" data-role="activeToggle"><span></span></label></td>
+    <td class="row-actions"><button type="button" class="link-btn link-btn--strong" data-role="editBtn">Edit</button></td>
+  </tr>
+</template>
+<template id="tplIssuedRewardRow">
+  <tr>
+    <td data-role="code"></td><td data-role="customer"></td><td data-role="reward"></td>
+    <td data-role="minOrder"></td><td data-role="expires"></td><td data-role="status"></td>
+    <td class="row-actions"><button type="button" class="link-btn" data-role="voidBtn">Void</button></td>
+  </tr>
+</template>
+  
   <script src="frontend-config.js"></script>
   <script src="dashboard.js" defer></script>
 </body>
