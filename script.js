@@ -119,6 +119,21 @@
     notifTitle: $('notifTitle'),
     notifMessage: $('notifMessage'),
     notifLink: $('notifLink'),
+    orderConfirmedModal: $('orderConfirmedModal'),
+confirmOrderId: $('confirmOrderId'),
+confirmRewardBox: $('confirmRewardBox'),
+confirmRewardCode: $('confirmRewardCode'),
+confirmRewardPercent: $('confirmRewardPercent'),
+confirmRewardMin: $('confirmRewardMin'),
+confirmRewardExpiry: $('confirmRewardExpiry'),
+confirmRewardCopyBtn: $('confirmRewardCopyBtn'),
+orderConfirmedDoneBtn: $('orderConfirmedDoneBtn'),
+trackRewardBox: $('trackRewardBox'),
+trackRewardCode: $('trackRewardCode'),
+trackRewardPercent: $('trackRewardPercent'),
+trackRewardMin: $('trackRewardMin'),
+trackRewardStatusNote: $('trackRewardStatusNote'),
+trackRewardCopyBtn: $('trackRewardCopyBtn'),
     toastHost: $('toastHost')
   };
 
@@ -675,7 +690,7 @@
     if (!code) { setCouponMessage('Please enter a coupon code.', 'error'); return; }
     if (!state.cart.size) { setCouponMessage('Add items to your cart first.', 'error'); return; }
     el.applyCouponBtn.disabled = true;
-    apiCall('validateCoupon', { tableToken: state.tableToken, items: cartPayload(), couponCode: code })
+    apiCall('validateCoupon', { tableToken: state.tableToken, customerKey: state.customerKey, items: cartPayload(), couponCode: code })
       .then(function (data) {
         state.coupon = data;
         el.couponCode.value = data.couponCode;
@@ -697,7 +712,7 @@
     if (!state.coupon) return;
     const code = state.coupon.couponCode;
     if (!state.cart.size) { removeCoupon(); return; }
-    apiCall('validateCoupon', { tableToken: state.tableToken, items: cartPayload(), couponCode: code })
+    apiCall('validateCoupon', { tableToken: state.tableToken, customerKey: state.customerKey, items: cartPayload(), couponCode: code })
       .then(function (data) { state.coupon = data; updateSummary(); })
       .catch(function (err) {
         state.coupon = null;
@@ -791,17 +806,14 @@
       couponCode: state.coupon ? state.coupon.couponCode : '',
       items: cartPayload()
     }).then(function (order) {
-      clearCart();
-      clearCartStorage();
-      removeCoupon();
-      el.orderForm.reset();
-      el.specialCount.textContent = '0/' + ((state.publicConfig && state.publicConfig.maxSpecialRequestLength) || 300);
-      state.currentOrder = order;
-      el.trackSuccess.hidden = false;
-      renderTrack(order);
-      switchView('track');
-      startPolling();
-    }).catch(function (err) {
+  clearCart();
+  clearCartStorage();
+  removeCoupon();
+  el.orderForm.reset();
+  el.specialCount.textContent = '0/' + ((state.publicConfig && state.publicConfig.maxSpecialRequestLength) || 300);
+  state.currentOrder = order;
+  showOrderConfirmedModal(order);
+}).catch(function (err) {
       if (!handleFatalIfNeeded(err)) {
         el.formError.textContent = err.message;
         el.formError.hidden = false;
@@ -822,6 +834,45 @@
     CANCELLED: 'This order was cancelled.'
   };
 
+  function formatNiceDate(stamp) {
+    if (!stamp) return '';
+    const d = new Date(stamp);
+    if (isNaN(d.getTime())) return '';
+    const months = ['Jan','Feb','Mar','Apr','May','Jun','Jul','Aug','Sep','Oct','Nov','Dec'];
+    return d.getDate() + ' ' + months[d.getMonth()] + ' ' + d.getFullYear();
+  }
+
+  function copyText(text, btn) {
+    if (!text) return;
+    const done = function () {
+      const original = btn.textContent;
+      btn.textContent = 'Copied!';
+      setTimeout(function () { btn.textContent = original; }, 1500);
+    };
+    if (navigator.clipboard && navigator.clipboard.writeText) {
+      navigator.clipboard.writeText(text).then(done).catch(function () { showToast('Could not copy. Please copy manually.', 'error'); });
+    } else {
+      const ta = document.createElement('textarea');
+      ta.value = text; document.body.appendChild(ta); ta.select();
+      try { document.execCommand('copy'); done(); } catch (e) { showToast('Could not copy.', 'error'); }
+      ta.remove();
+    }
+  }
+
+  function showOrderConfirmedModal(order) {
+    el.confirmOrderId.textContent = order.orderId;
+    if (order.rewardCoupon) {
+      el.confirmRewardBox.hidden = false;
+      el.confirmRewardCode.textContent = order.rewardCoupon.couponCode;
+      el.confirmRewardPercent.textContent = order.rewardCoupon.discountPercent + '% OFF';
+      el.confirmRewardMin.textContent = formatMoney(order.rewardCoupon.minOrder);
+      el.confirmRewardExpiry.textContent = formatNiceDate(order.rewardCoupon.expiresAt);
+    } else {
+      el.confirmRewardBox.hidden = true;
+    }
+    openModal(el.orderConfirmedModal);
+  }
+  
   function renderTrack(order) {
     el.trackOrderId.textContent = order.orderId;
     el.trackTime.textContent = order.orderDate + ' ' + order.orderTime;
@@ -854,6 +905,17 @@
       el.trackSpecial.textContent = order.specialRequest;
     } else {
       el.trackSpecialBox.hidden = true;
+    }
+        if (order.rewardCoupon) {
+      el.trackRewardBox.hidden = false;
+      el.trackRewardCode.textContent = order.rewardCoupon.couponCode;
+      el.trackRewardPercent.textContent = order.rewardCoupon.discountPercent + '% OFF';
+      el.trackRewardMin.textContent = formatMoney(order.rewardCoupon.minOrder);
+      el.trackRewardStatusNote.textContent = order.rewardCoupon.used
+        ? 'This coupon has already been used.'
+        : 'Valid till ' + formatNiceDate(order.rewardCoupon.expiresAt) + '. Take a screenshot to save it.';
+    } else {
+      el.trackRewardBox.hidden = true;
     }
   }
 
@@ -1072,7 +1134,14 @@
       const max = (state.publicConfig && state.publicConfig.maxSpecialRequestLength) || 300;
       el.specialCount.textContent = el.specialRequest.value.length + '/' + max;
     });
-
+        el.confirmRewardCopyBtn.addEventListener('click', function () { copyText(el.confirmRewardCode.textContent, el.confirmRewardCopyBtn); });
+    el.trackRewardCopyBtn.addEventListener('click', function () { copyText(el.trackRewardCode.textContent, el.trackRewardCopyBtn); });
+    el.orderConfirmedDoneBtn.addEventListener('click', function () {
+      closeModal(el.orderConfirmedModal);
+      switchView('track');
+      startPolling();
+    });
+    
     el.applyCouponBtn.addEventListener('click', applyCoupon);
     el.removeCouponBtn.addEventListener('click', removeCoupon);
 
