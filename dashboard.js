@@ -159,6 +159,22 @@
     couponFormError: $('couponFormError'),
     couponFormSaveBtn: $('couponFormSaveBtn'),
 
+    rewardTierAddBtn: $('rewardTierAddBtn'),
+rewardTiersBody: $('rewardTiersBody'),
+rewardTiersEmpty: $('rewardTiersEmpty'),
+issuedRewardsBody: $('issuedRewardsBody'),
+issuedRewardsEmpty: $('issuedRewardsEmpty'),
+rewardTierModal: $('rewardTierModal'),
+rewardTierModalTitle: $('rewardTierModalTitle'),
+rewardTierForm: $('rewardTierForm'),
+rewardTierId: $('rewardTierId'),
+rewardTierMin: $('rewardTierMin'),
+rewardTierMax: $('rewardTierMax'),
+rewardTierPercent: $('rewardTierPercent'),
+rewardTierActive: $('rewardTierActive'),
+rewardTierFormError: $('rewardTierFormError'),
+rewardTierSaveBtn: $('rewardTierSaveBtn'),
+
     tableModal: $('tableModal'),
     tableModalTitle: $('tableModalTitle'),
     tableForm: $('tableForm'),
@@ -187,7 +203,9 @@
     customerRow: $('tplCustomerRow'),
     notificationRow: $('tplNotificationRow'),
     seriesRow: $('tplSeriesRow'),
-    topItemRow: $('tplTopItemRow')
+    topItemRow: $('tplTopItemRow'),
+    rewardTierRow: $('tplRewardTierRow'),
+    issuedRewardRow: $('tplIssuedRewardRow')
   };
 
   function cloneTpl(t) { return t.content.firstElementChild.cloneNode(true); }
@@ -322,7 +340,7 @@
     qAll('.tab', el.tabBar).forEach(function (t) { t.classList.toggle('is-active', t.dataset.tab === name); });
     qAll('.tab-panel').forEach(function (p) { p.hidden = p.id !== 'tab' + capitalize(name); });
     const loaders = {
-      home: loadHome, orders: loadOrders, menu: loadMenu, coupons: loadCoupons,
+      home: loadHome, orders: loadOrders, menu: loadMenu, coupons: loadCoupons, rewards: loadRewards,
       tables: loadTables, customers: loadCustomers, analytics: loadAnalytics,
       notifications: loadNotifications, settings: loadSettings
     };
@@ -681,6 +699,92 @@
       .finally(function () { setBtnLoading(el.couponFormSaveBtn, false); });
   });
 
+function loadRewards() {
+  ownerCall('ownerListRewardTiers', {}).then(function (data) {
+    el.rewardTiersBody.innerHTML = '';
+    el.rewardTiersEmpty.hidden = data.tiers.length > 0;
+    data.tiers.forEach(function (t) {
+      const tr = cloneTpl(tpl.rewardTierRow);
+      role(tr, 'range').textContent = formatMoney(t.minOrder) + ' \u2013 ' + (t.maxOrder === null ? 'no limit' : formatMoney(t.maxOrder));
+      role(tr, 'reward').textContent = t.discountPercent + '% off next order';
+      const toggle = role(tr, 'activeToggle');
+      toggle.checked = t.active;
+      toggle.addEventListener('change', function () {
+        ownerCall('ownerSetRewardTierActive', { tierId: t.tierId, active: toggle.checked })
+          .then(function () { showToast('Tier updated.', 'success'); loadRewards(); })
+          .catch(function (err) { toggle.checked = !toggle.checked; showToast(err.message, 'error'); });
+      });
+      role(tr, 'editBtn').addEventListener('click', function () { openRewardTierModal(t); });
+      el.rewardTiersBody.appendChild(tr);
+    });
+  }).catch(function (err) { showToast(err.message, 'error'); });
+
+  ownerCall('ownerListIssuedRewardCoupons', {}).then(function (data) {
+    el.issuedRewardsBody.innerHTML = '';
+    el.issuedRewardsEmpty.hidden = data.coupons.length > 0;
+    data.coupons.forEach(function (c) {
+      const tr = cloneTpl(tpl.issuedRewardRow);
+      role(tr, 'code').textContent = c.couponCode;
+      role(tr, 'customer').textContent = c.customerName + (c.mobile ? ' (' + c.mobile + ')' : '');
+      role(tr, 'reward').textContent = c.discountPercent + '%';
+      role(tr, 'minOrder').textContent = formatMoney(c.minOrder);
+      role(tr, 'expires').textContent = c.expiresAt ? c.expiresAt.substring(0, 10) : '';
+      const statusCell = role(tr, 'status');
+      const voidBtn = role(tr, 'voidBtn');
+      if (c.used) { statusCell.textContent = 'Used'; voidBtn.hidden = true; }
+      else if (!c.active) { statusCell.textContent = 'Voided'; voidBtn.hidden = true; }
+      else {
+        statusCell.textContent = 'Active';
+        voidBtn.addEventListener('click', function () {
+          confirmAction('Void coupon', 'Void coupon ' + c.couponCode + '?').then(function (ok) {
+            if (!ok) return;
+            ownerCall('ownerSetRewardCouponActive', { couponCode: c.couponCode, active: false })
+              .then(function () { showToast('Coupon voided.', 'success'); loadRewards(); })
+              .catch(function (err) { showToast(err.message, 'error'); });
+          });
+        });
+      }
+      el.issuedRewardsBody.appendChild(tr);
+    });
+  }).catch(function (err) { showToast(err.message, 'error'); });
+}
+
+function openRewardTierModal(tier) {
+  el.rewardTierForm.reset();
+  el.rewardTierFormError.hidden = true;
+  if (tier) {
+    el.rewardTierModalTitle.textContent = 'Edit reward tier';
+    el.rewardTierId.value = tier.tierId;
+    el.rewardTierMin.value = tier.minOrder;
+    el.rewardTierMax.value = tier.maxOrder === null ? '' : tier.maxOrder;
+    el.rewardTierPercent.value = tier.discountPercent;
+    el.rewardTierActive.checked = tier.active;
+  } else {
+    el.rewardTierModalTitle.textContent = 'Add reward tier';
+    el.rewardTierId.value = '';
+    el.rewardTierActive.checked = true;
+  }
+  openModal(el.rewardTierModal);
+}
+el.rewardTierAddBtn.addEventListener('click', function () { openRewardTierModal(null); });
+
+el.rewardTierForm.addEventListener('submit', function (e) {
+  e.preventDefault();
+  el.rewardTierFormError.hidden = true;
+  const payload = {
+    tierId: el.rewardTierId.value || undefined,
+    minOrder: el.rewardTierMin.value,
+    maxOrder: el.rewardTierMax.value === '' ? '' : el.rewardTierMax.value,
+    discountPercent: el.rewardTierPercent.value,
+    active: el.rewardTierActive.checked
+  };
+  setBtnLoading(el.rewardTierSaveBtn, true);
+  ownerCall('ownerSaveRewardTier', payload)
+    .then(function () { showToast('Reward tier saved.', 'success'); closeModal(el.rewardTierModal); loadRewards(); })
+    .catch(function (err) { el.rewardTierFormError.textContent = err.message; el.rewardTierFormError.hidden = false; })
+    .finally(function () { setBtnLoading(el.rewardTierSaveBtn, false); });
+});
+  
   /* ================================================================ */
   /* Tables                                                            */
   /* ================================================================ */
