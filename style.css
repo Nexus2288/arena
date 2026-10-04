@@ -585,3 +585,44 @@ body.has-cart-bar .page { padding-bottom: calc(104px + var(--safe-bottom)); }
 .reward-card__note { text-align: center; font-size: 11px; color: #c9b8a6; line-height: 1.5; }
 .reward-card__note strong { color: #fff; }
 .reward-card--track { margin: 14px 16px 0; }
+
+/* ---------- Track loading state ---------- */
+.track-loading {
+  text-align: center;
+  padding: 48px 20px;
+  color: var(--muted);
+}
+.track-loading__spinner {
+  display: inline-block;
+  width: 36px; height: 36px;
+  border: 3px solid var(--line);
+  border-top-color: var(--gold);
+  border-radius: 50%;
+  animation: track-spin 0.8s linear infinite;
+  margin-bottom: 14px;
+}
+.track-loading p {
+  font-weight: 700;
+  color: var(--espresso);
+  margin: 0 0 4px;
+}
+.track-loading small { font-size: 12.5px; }
+@keyframes track-spin {
+  to { transform: rotate(360deg); }
+}
+
+/* ---------- Banner refresh button ---------- */
+.banner__refresh {
+  flex: 0 0 auto;
+  width: 30px; height: 30px;
+  border: none;
+  border-radius: 50%;
+  background: rgba(0,0,0,0.06);
+  color: var(--espresso);
+  font-size: 16px;
+  display: flex; align-items: center; justify-content: center;
+  cursor: pointer;
+}
+.banner__refresh.is-spinning {
+  animation: track-spin 0.6s linear infinite;
+}
