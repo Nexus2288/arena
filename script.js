@@ -98,6 +98,9 @@
     trackSpecialBox: $('trackSpecialBox'),
     trackSpecial: $('trackSpecial'),
     trackRefreshBtn: $('trackRefreshBtn'),
+    trackLoading: $('trackLoading'),
+    trackContent: $('trackContent'),
+    activeOrderRefreshBtn: $('activeOrderRefreshBtn'),
     newOrderBtn: $('newOrderBtn'),
     trackHint: $('trackHint'),
     cartBar: $('cartBar'),
@@ -739,14 +742,19 @@ trackRewardCopyBtn: $('trackRewardCopyBtn'),
   /* View switching                                                    */
   /* ================================================================ */
   function switchView(name) {
-    state.currentView = name;
-    el.viewMenu.hidden = name !== 'menu';
-    el.viewCart.hidden = name !== 'cart';
-    el.viewTrack.hidden = name !== 'track';
-    window.scrollTo({ top: 0, behavior: 'auto' });
-    updateCartBar();
-    if (name !== 'track') stopPolling();
-  }
+  state.currentView = name;
+
+  el.viewMenu.hidden = name !== 'menu';
+  el.viewCart.hidden = name !== 'cart';
+  el.viewTrack.hidden = name !== 'track';
+
+  window.scrollTo({ top: 0, behavior: 'auto' });
+
+  updateCartBar();
+
+  if (name !== 'track') stopPolling();
+  if (name === 'menu') refreshActiveOrder();
+}
 
   /* ================================================================ */
   /* Form validation + order placement                                 */
@@ -872,6 +880,16 @@ trackRewardCopyBtn: $('trackRewardCopyBtn'),
     }
     openModal(el.orderConfirmedModal);
   }
+
+function showTrackLoading() {
+  el.trackLoading.hidden = false;
+  el.trackContent.hidden = true;
+}
+
+function hideTrackLoading() {
+  el.trackLoading.hidden = true;
+  el.trackContent.hidden = false;
+}
   
   function renderTrack(order) {
     el.trackOrderId.textContent = order.orderId;
@@ -920,20 +938,30 @@ trackRewardCopyBtn: $('trackRewardCopyBtn'),
   }
 
   function fetchOrderStatus(showErrors) {
-    if (!state.currentOrder) return Promise.resolve();
-    return apiCall('getOrderStatus', {
-      tableToken: state.tableToken,
-      customerKey: state.customerKey,
-      orderId: state.currentOrder.orderId
-    }).then(function (order) {
-      state.currentOrder = order;
-      renderTrack(order);
-      if (order.orderStatus === 'COMPLETED' || order.orderStatus === 'CANCELLED') stopPolling();
-    }).catch(function (err) {
-      if (!handleFatalIfNeeded(err) && showErrors) showToast(err.message, 'error');
-    });
-  }
+  if (!state.currentOrder) return Promise.resolve();
 
+  return apiCall('getOrderStatus', {
+    tableToken: state.tableToken,
+    customerKey: state.customerKey,
+    orderId: state.currentOrder.orderId
+  }).then(function (order) {
+    state.currentOrder = order;
+    renderTrack(order);
+    hideTrackLoading();
+
+    if (
+      order.orderStatus === 'COMPLETED' ||
+      order.orderStatus === 'CANCELLED'
+    ) {
+      stopPolling();
+    }
+  }).catch(function (err) {
+    hideTrackLoading();
+    if (!handleFatalIfNeeded(err) && showErrors) {
+      showToast(err.message, 'error');
+    }
+  });
+}
   function startPolling() {
     stopPolling();
     const seconds = (state.publicConfig && state.publicConfig.pollSeconds) || 10;
@@ -944,23 +972,40 @@ trackRewardCopyBtn: $('trackRewardCopyBtn'),
   }
 
   function refreshActiveOrder() {
-    apiCall('getActiveOrder', { tableToken: state.tableToken, customerKey: state.customerKey })
-      .then(function (order) {
-        if (!order) { el.activeOrderBanner.hidden = true; return; }
-        state.currentOrder = order;
-        el.activeOrderBanner.hidden = false;
-        if (order.orderStatus === 'COMPLETED') {
-          el.activeOrderTitle.textContent = 'Your last order is complete';
-          el.activeOrderSub.textContent = 'Tap to view details';
-        } else {
-          el.activeOrderTitle.textContent = order.orderStatus === 'PREPARING'
-            ? 'Your order is being prepared'
-            : 'You have an order in progress';
-          el.activeOrderSub.textContent = 'Tap to track it';
-        }
-      })
-      .catch(function (err) { handleFatalIfNeeded(err); });
+  if (state.currentOrder) {
+    el.activeOrderBanner.hidden = false;
+    el.activeOrderTitle.textContent = 'Checking your order…';
+    el.activeOrderSub.textContent = 'Please wait';
   }
+
+  return apiCall('getActiveOrder', {
+    tableToken: state.tableToken,
+    customerKey: state.customerKey
+  })
+    .then(function (order) {
+      if (!order) {
+        el.activeOrderBanner.hidden = true;
+        state.currentOrder = null;
+        return;
+      }
+
+      state.currentOrder = order;
+      el.activeOrderBanner.hidden = false;
+
+      if (order.orderStatus === 'COMPLETED') {
+        el.activeOrderTitle.textContent = 'Your last order is complete';
+        el.activeOrderSub.textContent = 'Tap to view details';
+      } else {
+        el.activeOrderTitle.textContent = order.orderStatus === 'PREPARING'
+          ? 'Your order is being prepared'
+          : 'You have an order in progress';
+        el.activeOrderSub.textContent = 'Tap to track it';
+      }
+    })
+    .catch(function (err) {
+      handleFatalIfNeeded(err);
+    });
+}
 
   /* ================================================================ */
   /* Modals                                                            */
@@ -1110,16 +1155,32 @@ trackRewardCopyBtn: $('trackRewardCopyBtn'),
       applyFilters();
     });
 
+el.activeOrderRefreshBtn.addEventListener('click', function (e) {
+  e.stopPropagation();
+  el.activeOrderRefreshBtn.classList.add('is-spinning');
+  refreshActiveOrder().then(function () {
+    el.activeOrderRefreshBtn.classList.remove('is-spinning');
+  }).catch(function () {
+    el.activeOrderRefreshBtn.classList.remove('is-spinning');
+  });
+});
+    
     el.activeOrderBanner.addEventListener('click', function () {
-      if (!state.currentOrder) return;
-      renderTrack(state.currentOrder);
-      el.trackSuccess.hidden = true;
-      switchView('track');
-      if (state.currentOrder.orderStatus === 'NEW' || state.currentOrder.orderStatus === 'PREPARING') {
-        startPolling();
-      }
-      fetchOrderStatus(true);
-    });
+  if (!state.currentOrder) return;
+
+  el.trackSuccess.hidden = true;
+  showTrackLoading();
+  switchView('track');
+
+  fetchOrderStatus(true).then(function () {
+    if (
+      state.currentOrder.orderStatus === 'NEW' ||
+      state.currentOrder.orderStatus === 'PREPARING'
+    ) {
+      startPolling();
+    }
+  });
+});
 
     el.viewCartBtn.addEventListener('click', function () { switchView('cart'); });
     el.cartBackBtn.addEventListener('click', function () { switchView('menu'); });
@@ -1137,10 +1198,13 @@ trackRewardCopyBtn: $('trackRewardCopyBtn'),
         el.confirmRewardCopyBtn.addEventListener('click', function () { copyText(el.confirmRewardCode.textContent, el.confirmRewardCopyBtn); });
     el.trackRewardCopyBtn.addEventListener('click', function () { copyText(el.trackRewardCode.textContent, el.trackRewardCopyBtn); });
     el.orderConfirmedDoneBtn.addEventListener('click', function () {
-      closeModal(el.orderConfirmedModal);
-      switchView('track');
-      startPolling();
-    });
+  closeModal(el.orderConfirmedModal);
+  renderTrack(state.currentOrder);
+  el.trackSuccess.hidden = false;
+  hideTrackLoading();
+  switchView('track');
+  startPolling();
+});
     
     el.applyCouponBtn.addEventListener('click', applyCoupon);
     el.removeCouponBtn.addEventListener('click', removeCoupon);
@@ -1148,7 +1212,10 @@ trackRewardCopyBtn: $('trackRewardCopyBtn'),
     el.orderForm.addEventListener('submit', submitOrder);
 
     el.trackBackBtn.addEventListener('click', function () { switchView('menu'); });
-    el.trackRefreshBtn.addEventListener('click', function () { fetchOrderStatus(true); });
+    eel.trackRefreshBtn.addEventListener('click', function () {
+  showTrackLoading();
+  fetchOrderStatus(true);
+});
     el.newOrderBtn.addEventListener('click', function () { switchView('menu'); });
   }
 
