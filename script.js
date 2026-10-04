@@ -1001,11 +1001,13 @@ function prefillCustomerDetails() {
 }
   function fetchSessionOrders(showErrors) {
   if (!state.tableToken || !state.customerKey) return Promise.resolve();
+    console.log('CALLING getSessionOrders with:', state.tableToken, state.customerKey); // 👈 ADD THIS
 
   return apiCall('getSessionOrders', {
     tableToken: state.tableToken,
     customerKey: state.customerKey
   }).then(function (data) {
+    console.log('RECEIVED DATA:', data); // 👈 ADD THIS
     const orders = data.orders || [];
     state.sessionOrders = orders;
     if (orders.length) state.currentOrder = orders[orders.length - 1];
@@ -1017,6 +1019,7 @@ function prefillCustomerDetails() {
     });
     if (!anyActive) stopPolling();
   }).catch(function (err) {
+    onsole.log('ERROR CAUGHT:', err); // 👈 ADD THIS
     hideTrackLoading();
     if (!handleFatalIfNeeded(err) && showErrors) {
       showToast(err.message, 'error');
