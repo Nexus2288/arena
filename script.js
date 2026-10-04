@@ -1212,7 +1212,7 @@ el.activeOrderRefreshBtn.addEventListener('click', function (e) {
     el.orderForm.addEventListener('submit', submitOrder);
 
     el.trackBackBtn.addEventListener('click', function () { switchView('menu'); });
-    eel.trackRefreshBtn.addEventListener('click', function () {
+    el.trackRefreshBtn.addEventListener('click', function () {
   showTrackLoading();
   fetchOrderStatus(true);
 });
