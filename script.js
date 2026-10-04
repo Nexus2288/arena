@@ -131,12 +131,12 @@ confirmRewardMin: $('confirmRewardMin'),
 confirmRewardExpiry: $('confirmRewardExpiry'),
 confirmRewardCopyBtn: $('confirmRewardCopyBtn'),
 orderConfirmedDoneBtn: $('orderConfirmedDoneBtn'),
-trackRewardBox: $('trackRewardBox'),
-trackRewardCode: $('trackRewardCode'),
-trackRewardPercent: $('trackRewardPercent'),
-trackRewardMin: $('trackRewardMin'),
-trackRewardStatusNote: $('trackRewardStatusNote'),
-trackRewardCopyBtn: $('trackRewardCopyBtn'),
+// trackRewardBox: $('trackRewardBox'),
+// trackRewardCode: $('trackRewardCode'),
+// trackRewardPercent: $('trackRewardPercent'),
+// trackRewardMin: $('trackRewardMin'),
+// trackRewardStatusNote: $('trackRewardStatusNote'),
+// trackRewardCopyBtn: $('trackRewardCopyBtn'),
     toastHost: $('toastHost'),
     trackOrdersHeading: $('trackOrdersHeading'),
 trackOrdersCount: $('trackOrdersCount'),
@@ -1253,7 +1253,7 @@ el.activeOrderRefreshBtn.addEventListener('click', function (e) {
       el.specialCount.textContent = el.specialRequest.value.length + '/' + max;
     });
         el.confirmRewardCopyBtn.addEventListener('click', function () { copyText(el.confirmRewardCode.textContent, el.confirmRewardCopyBtn); });
-    el.trackRewardCopyBtn.addEventListener('click', function () { copyText(el.trackRewardCode.textContent, el.trackRewardCopyBtn); });
+    // el.trackRewardCopyBtn.addEventListener('click', function () { copyText(el.trackRewardCode.textContent, el.trackRewardCopyBtn); });
     el.orderConfirmedDoneBtn.addEventListener('click', function () {
   closeModal(el.orderConfirmedModal);
   el.trackSuccess.hidden = false;
