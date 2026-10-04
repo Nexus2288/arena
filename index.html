@@ -209,98 +209,24 @@
       <strong>Order placed!</strong> Our kitchen has received your order.
     </div>
 
-    <div id="trackRewardBox" class="reward-card reward-card--track" hidden>
-      <div class="reward-card__head">
-        <span class="reward-card__icon" aria-hidden="true">&#127873;</span>
-        <div><small>YOUR REWARD</small><strong>Coupon for your next order</strong></div>
+    <p id="trackOrdersHeading" class="section-title" hidden>
+      Your orders in this visit (<span id="trackOrdersCount">0</span>)
+    </p>
+
+    <div id="trackOrdersList"></div>
+
+    <div class="card track-grand-total">
+      <div class="summary__row summary__row--total">
+        <span>Total for all orders</span>
+        <strong id="trackGrandTotal"></strong>
       </div>
-
-      <div class="reward-card__code">
-        <div>
-          <small>COUPON CODE</small>
-          <strong id="trackRewardCode"></strong>
-        </div>
-        <button type="button" id="trackRewardCopyBtn" class="btn-small">Copy</button>
-      </div>
-
-      <p class="reward-card__terms">
-        <strong id="trackRewardPercent"></strong> on orders of
-        <span id="trackRewardMin"></span> or more
-      </p>
-
-      <p class="reward-card__note" id="trackRewardStatusNote"></p>
-    </div>
-
-    <div class="card track-card">
-      <div class="track-meta">
-        <div>
-          <small>Order ID</small>
-          <strong id="trackOrderId"></strong>
-        </div>
-        <div>
-          <small>Placed at</small>
-          <strong id="trackTime"></strong>
-        </div>
-      </div>
-
-      <ol id="trackSteps" class="steps" data-status="NEW" aria-label="Order progress">
-        <li class="step" data-step="NEW">
-          <span class="step__dot">1</span>
-          <span class="step__label">Order placed</span>
-        </li>
-
-        <li class="step" data-step="PREPARING">
-          <span class="step__dot">2</span>
-          <span class="step__label">Preparing</span>
-        </li>
-
-        <li class="step" data-step="COMPLETED">
-          <span class="step__dot">3</span>
-          <span class="step__label">Completed</span>
-        </li>
-      </ol>
-
-      <p id="trackStatusText" class="track-status-text"></p>
-      <p id="trackStatusUpdated" class="track-updated"></p>
-
-      <div id="trackCancelled" class="notice notice--error" hidden>
-        This order was cancelled. Please speak to our staff.
-      </div>
-    </div>
-
-    <div class="card">
-      <h3 class="section-title">Items</h3>
-
-      <ul id="trackItems" class="track-lines"></ul>
-
-      <section class="summary" aria-label="Order total">
-        <div class="summary__row">
-          <span>Subtotal</span>
-          <span id="trackSubtotal"></span>
-        </div>
-
-        <div id="trackDiscountRow" class="summary__row summary__row--discount" hidden>
-          <span id="trackDiscountLabel">Discount</span>
-          <span id="trackDiscount"></span>
-        </div>
-
-        <div class="summary__row summary__row--total">
-          <span>Total</span>
-          <strong id="trackTotal"></strong>
-        </div>
-      </section>
-
-      <div id="trackSpecialBox" class="track-special" hidden>
-        <small>Special instructions</small>
-        <p id="trackSpecial"></p>
-      </div>
+      <p class="track-hint">Please pay this amount at the counter when you are done.</p>
     </div>
 
     <div class="track-actions">
       <button type="button" id="trackRefreshBtn" class="btn-outline">
         Refresh status
       </button>
-
       <button type="button" id="newOrderBtn" class="btn-primary">
         Order more
       </button>
@@ -471,6 +397,89 @@
     </li>
   </template>
 
+<template id="tplOrderCard">
+  <div class="order-card">
+    <div class="reward-card reward-card--track" data-role="rewardBox" hidden>
+      <div class="reward-card__head">
+        <span class="reward-card__icon" aria-hidden="true">&#127873;</span>
+        <div><small>YOUR REWARD</small><strong>Coupon for your next order</strong></div>
+      </div>
+      <div class="reward-card__code">
+        <div>
+          <small>COUPON CODE</small>
+          <strong data-role="rewardCode"></strong>
+        </div>
+        <button type="button" class="btn-small" data-role="rewardCopyBtn">Copy</button>
+      </div>
+      <p class="reward-card__terms">
+        <strong data-role="rewardPercent"></strong> on orders of
+        <span data-role="rewardMin"></span> or more
+      </p>
+      <p class="reward-card__note" data-role="rewardNote"></p>
+    </div>
+
+    <div class="card track-card">
+      <div class="track-meta">
+        <div>
+          <small>Order ID</small>
+          <strong data-role="orderId"></strong>
+        </div>
+        <div>
+          <small>Placed at</small>
+          <strong data-role="time"></strong>
+        </div>
+      </div>
+
+      <ol class="steps" data-role="steps" data-status="NEW" aria-label="Order progress">
+        <li class="step" data-step="NEW">
+          <span class="step__dot">1</span>
+          <span class="step__label">Order placed</span>
+        </li>
+        <li class="step" data-step="PREPARING">
+          <span class="step__dot">2</span>
+          <span class="step__label">Preparing</span>
+        </li>
+        <li class="step" data-step="COMPLETED">
+          <span class="step__dot">3</span>
+          <span class="step__label">Completed</span>
+        </li>
+      </ol>
+
+      <p class="track-status-text" data-role="statusText"></p>
+      <p class="track-updated" data-role="statusUpdated"></p>
+
+      <div class="notice notice--error" data-role="cancelledNotice" hidden>
+        This order was cancelled. Please speak to our staff.
+      </div>
+    </div>
+
+    <div class="card">
+      <h3 class="section-title">Items</h3>
+      <ul class="track-lines" data-role="items"></ul>
+
+      <section class="summary" aria-label="Order total">
+        <div class="summary__row">
+          <span>Subtotal</span>
+          <span data-role="subtotal"></span>
+        </div>
+        <div class="summary__row summary__row--discount" data-role="discountRow" hidden>
+          <span data-role="discountLabel">Discount</span>
+          <span data-role="discount"></span>
+        </div>
+        <div class="summary__row summary__row--total">
+          <span>Total</span>
+          <strong data-role="total"></strong>
+        </div>
+      </section>
+
+      <div class="track-special" data-role="specialBox" hidden>
+        <small>Special instructions</small>
+        <p data-role="special"></p>
+      </div>
+    </div>
+  </div>
+</template>
+  
   <script src="frontend-config.js"></script>
   <script src="script.js" defer></script>
 </body>
