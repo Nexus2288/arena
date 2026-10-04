@@ -137,7 +137,11 @@ trackRewardPercent: $('trackRewardPercent'),
 trackRewardMin: $('trackRewardMin'),
 trackRewardStatusNote: $('trackRewardStatusNote'),
 trackRewardCopyBtn: $('trackRewardCopyBtn'),
-    toastHost: $('toastHost')
+    toastHost: $('toastHost'),
+    trackOrdersHeading: $('trackOrdersHeading'),
+trackOrdersCount: $('trackOrdersCount'),
+trackOrdersList: $('trackOrdersList'),
+trackGrandTotal: $('trackGrandTotal')
   };
 
   const tpl = {
@@ -146,6 +150,7 @@ trackRewardCopyBtn: $('trackRewardCopyBtn'),
     menuCard: $('tplMenuCard'),
     cartLine: $('tplCartLine'),
     trackLine: $('tplTrackLine'),
+    orderCard: $('tplOrderCard'),
     tier: $('tplTier')
   };
 
@@ -172,7 +177,10 @@ trackRewardCopyBtn: $('trackRewardCopyBtn'),
     currentOrder: null,
     pollTimer: null,
     notifTimer: null,
-    notifOptedIn: false
+    notifOptedIn: false,
+    customerName: '',
+    mobile: '',
+    sessionOrders: []
   };
 
   /* ---------------- Toast ---------------- */
@@ -320,6 +328,7 @@ trackRewardCopyBtn: $('trackRewardCopyBtn'),
       return;
     }
     state.customerKey = getOrCreateCustomerKey();
+    loadCustomerDetails();
     loadCart();
 
     Promise.all([
@@ -336,6 +345,7 @@ trackRewardCopyBtn: $('trackRewardCopyBtn'),
       renderMenu();
       renderCouponTiers();
       bindEvents();
+      prefillCustomerDetails();
       showApp();
       refreshActiveOrder();
       maybeShowNotifyCard();
@@ -818,9 +828,11 @@ trackRewardCopyBtn: $('trackRewardCopyBtn'),
   clearCartStorage();
   removeCoupon();
   el.orderForm.reset();
-  el.specialCount.textContent = '0/' + ((state.publicConfig && state.publicConfig.maxSpecialRequestLength) || 300);
-  state.currentOrder = order;
-  showOrderConfirmedModal(order);
+saveCustomerDetails(name, mobile);
+prefillCustomerDetails();
+el.specialCount.textContent = '0/' + ((state.publicConfig && state.publicConfig.maxSpecialRequestLength) || 300);
+state.currentOrder = order;
+showOrderConfirmedModal(order);
 }).catch(function (err) {
       if (!handleFatalIfNeeded(err)) {
         el.formError.textContent = err.message;
@@ -890,71 +902,120 @@ function hideTrackLoading() {
   el.trackLoading.hidden = true;
   el.trackContent.hidden = false;
 }
-  
-  function renderTrack(order) {
-    el.trackOrderId.textContent = order.orderId;
-    el.trackTime.textContent = order.orderDate + ' ' + order.orderTime;
-    el.trackSteps.dataset.status = order.orderStatus;
-    el.trackStatusText.textContent = STATUS_TEXT[order.orderStatus] || '';
-    el.trackStatusUpdated.textContent = 'Updated ' + order.statusUpdatedAt;
-    el.trackCancelled.hidden = order.orderStatus !== 'CANCELLED';
 
-    el.trackItems.innerHTML = '';
+function saveCustomerDetails(name, mobile) {
+  state.customerName = name;
+  state.mobile = mobile;
+  try {
+    localStorage.setItem('loveCoffeeCustomerName', name);
+    localStorage.setItem('loveCoffeeCustomerMobile', mobile);
+  } catch (e) { /* ignore */ }
+}
+
+function loadCustomerDetails() {
+  try {
+    state.customerName = localStorage.getItem('loveCoffeeCustomerName') || '';
+    state.mobile = localStorage.getItem('loveCoffeeCustomerMobile') || '';
+  } catch (e) {
+    state.customerName = '';
+    state.mobile = '';
+  }
+}
+
+function prefillCustomerDetails() {
+  if (state.customerName) el.customerName.value = state.customerName;
+  if (state.mobile) el.customerMobile.value = state.mobile;
+}
+  
+  function renderSessionOrders(orders) {
+  el.trackOrdersList.innerHTML = '';
+  let grandTotal = 0;
+
+  el.trackOrdersHeading.hidden = orders.length === 0;
+  el.trackOrdersCount.textContent = orders.length;
+
+  orders.forEach(function (order) {
+    const card = cloneTpl(tpl.orderCard);
+
+    const rewardBox = role(card, 'rewardBox');
+    if (order.rewardCoupon) {
+      rewardBox.hidden = false;
+      role(rewardBox, 'rewardCode').textContent = order.rewardCoupon.couponCode;
+      role(rewardBox, 'rewardPercent').textContent = order.rewardCoupon.discountPercent + '% OFF';
+      role(rewardBox, 'rewardMin').textContent = formatMoney(order.rewardCoupon.minOrder);
+      role(rewardBox, 'rewardNote').textContent = order.rewardCoupon.used
+        ? 'This coupon has already been used.'
+        : 'Valid till ' + formatNiceDate(order.rewardCoupon.expiresAt) + '. Take a screenshot to save it.';
+      const copyBtn = role(rewardBox, 'rewardCopyBtn');
+      copyBtn.addEventListener('click', function () { copyText(order.rewardCoupon.couponCode, copyBtn); });
+    } else {
+      rewardBox.hidden = true;
+    }
+
+    role(card, 'orderId').textContent = order.orderId;
+    role(card, 'time').textContent = order.orderDate + ' ' + order.orderTime;
+
+    role(card, 'steps').dataset.status = order.orderStatus;
+    role(card, 'statusText').textContent = STATUS_TEXT[order.orderStatus] || '';
+    role(card, 'statusUpdated').textContent = 'Updated ' + order.statusUpdatedAt;
+    role(card, 'cancelledNotice').hidden = order.orderStatus !== 'CANCELLED';
+
+    const itemsList = role(card, 'items');
     order.items.forEach(function (line) {
       const li = cloneTpl(tpl.trackLine);
       role(li, 'qty').textContent = 'x' + line.quantity;
       role(li, 'name').textContent = line.itemName;
       role(li, 'lineTotal').textContent = formatMoney(line.lineTotal);
-      el.trackItems.appendChild(li);
+      itemsList.appendChild(li);
     });
 
-    el.trackSubtotal.textContent = formatMoney(order.subtotal);
+    role(card, 'subtotal').textContent = formatMoney(order.subtotal);
+
+    const discountRow = role(card, 'discountRow');
     if (order.couponCode) {
-      el.trackDiscountRow.hidden = false;
-      el.trackDiscountLabel.textContent = 'Discount (' + order.couponCode + ')';
-      el.trackDiscount.textContent = '-' + formatMoney(order.discountAmount);
+      discountRow.hidden = false;
+      role(card, 'discountLabel').textContent = 'Discount (' + order.couponCode + ')';
+      role(card, 'discount').textContent = '-' + formatMoney(order.discountAmount);
     } else {
-      el.trackDiscountRow.hidden = true;
+      discountRow.hidden = true;
     }
-    el.trackTotal.textContent = formatMoney(order.finalTotal);
 
+    role(card, 'total').textContent = formatMoney(order.finalTotal);
+
+    const specialBox = role(card, 'specialBox');
     if (order.specialRequest) {
-      el.trackSpecialBox.hidden = false;
-      el.trackSpecial.textContent = order.specialRequest;
+      specialBox.hidden = false;
+      role(card, 'special').textContent = order.specialRequest;
     } else {
-      el.trackSpecialBox.hidden = true;
+      specialBox.hidden = true;
     }
-        if (order.rewardCoupon) {
-      el.trackRewardBox.hidden = false;
-      el.trackRewardCode.textContent = order.rewardCoupon.couponCode;
-      el.trackRewardPercent.textContent = order.rewardCoupon.discountPercent + '% OFF';
-      el.trackRewardMin.textContent = formatMoney(order.rewardCoupon.minOrder);
-      el.trackRewardStatusNote.textContent = order.rewardCoupon.used
-        ? 'This coupon has already been used.'
-        : 'Valid till ' + formatNiceDate(order.rewardCoupon.expiresAt) + '. Take a screenshot to save it.';
-    } else {
-      el.trackRewardBox.hidden = true;
+
+    if (order.orderStatus !== 'CANCELLED') {
+      grandTotal += order.finalTotal;
     }
-  }
 
-  function fetchOrderStatus(showErrors) {
-  if (!state.currentOrder) return Promise.resolve();
+    el.trackOrdersList.appendChild(card);
+  });
 
-  return apiCall('getOrderStatus', {
+  el.trackGrandTotal.textContent = formatMoney(grandTotal);
+}
+  function fetchSessionOrders(showErrors) {
+  if (!state.tableToken || !state.customerKey) return Promise.resolve();
+
+  return apiCall('getSessionOrders', {
     tableToken: state.tableToken,
-    customerKey: state.customerKey,
-    orderId: state.currentOrder.orderId
-  }).then(function (order) {
-    state.currentOrder = order;
-    renderTrack(order);
+    customerKey: state.customerKey
+  }).then(function (data) {
+    const orders = data.orders || [];
+    state.sessionOrders = orders;
+    if (orders.length) state.currentOrder = orders[orders.length - 1];
+    renderSessionOrders(orders);
     hideTrackLoading();
 
-    if (
-      order.orderStatus === 'COMPLETED' ||
-      order.orderStatus === 'CANCELLED'
-    ) {
-      stopPolling();
-    }
+    const anyActive = orders.some(function (o) {
+      return o.orderStatus === 'NEW' || o.orderStatus === 'PREPARING';
+    });
+    if (!anyActive) stopPolling();
   }).catch(function (err) {
     hideTrackLoading();
     if (!handleFatalIfNeeded(err) && showErrors) {
@@ -965,7 +1026,7 @@ function hideTrackLoading() {
   function startPolling() {
     stopPolling();
     const seconds = (state.publicConfig && state.publicConfig.pollSeconds) || 10;
-    state.pollTimer = setInterval(function () { fetchOrderStatus(false); }, seconds * 1000);
+    state.pollTimer = setInterval(function () { fetchSessionOrders(false); }, seconds * 1000);
   }
   function stopPolling() {
     if (state.pollTimer) { clearInterval(state.pollTimer); state.pollTimer = null; }
@@ -1167,18 +1228,14 @@ el.activeOrderRefreshBtn.addEventListener('click', function (e) {
     
     el.activeOrderBanner.addEventListener('click', function () {
   if (!state.currentOrder) return;
-
   el.trackSuccess.hidden = true;
   showTrackLoading();
   switchView('track');
-
-  fetchOrderStatus(true).then(function () {
-    if (
-      state.currentOrder.orderStatus === 'NEW' ||
-      state.currentOrder.orderStatus === 'PREPARING'
-    ) {
-      startPolling();
-    }
+  fetchSessionOrders(true).then(function () {
+    const anyActive = (state.sessionOrders || []).some(function (o) {
+      return o.orderStatus === 'NEW' || o.orderStatus === 'PREPARING';
+    });
+    if (anyActive) startPolling();
   });
 });
 
@@ -1199,11 +1256,11 @@ el.activeOrderRefreshBtn.addEventListener('click', function (e) {
     el.trackRewardCopyBtn.addEventListener('click', function () { copyText(el.trackRewardCode.textContent, el.trackRewardCopyBtn); });
     el.orderConfirmedDoneBtn.addEventListener('click', function () {
   closeModal(el.orderConfirmedModal);
-  renderTrack(state.currentOrder);
   el.trackSuccess.hidden = false;
+  renderSessionOrders([state.currentOrder]);
   hideTrackLoading();
   switchView('track');
-  startPolling();
+  fetchSessionOrders(true).then(function () { startPolling(); });
 });
     
     el.applyCouponBtn.addEventListener('click', applyCoupon);
@@ -1214,7 +1271,7 @@ el.activeOrderRefreshBtn.addEventListener('click', function (e) {
     el.trackBackBtn.addEventListener('click', function () { switchView('menu'); });
     el.trackRefreshBtn.addEventListener('click', function () {
   showTrackLoading();
-  fetchOrderStatus(true);
+  fetchSessionOrders(true);
 });
     el.newOrderBtn.addEventListener('click', function () { switchView('menu'); });
   }
