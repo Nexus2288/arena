@@ -626,3 +626,11 @@ body.has-cart-bar .page { padding-bottom: calc(104px + var(--safe-bottom)); }
 .banner__refresh.is-spinning {
   animation: track-spin 0.6s linear infinite;
 }
+
+.order-card { margin-bottom: 18px; }
+.order-card .track-card,
+.order-card .card { margin-bottom: 12px; }
+#trackOrdersList > .order-card:last-child { margin-bottom: 0; }
+.track-grand-total { background: var(--cream); border: 1px solid var(--line); text-align: center; margin-bottom: 16px; }
+.track-grand-total .summary__row--total { font-size: 16px; }
+#trackOrdersHeading { margin: 6px 0 14px; color: var(--muted); font-size: 13px; font-weight: 700; }
