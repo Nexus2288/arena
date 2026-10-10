@@ -246,23 +246,46 @@ rewardTierSaveBtn: $('rewardTierSaveBtn'),
     const e = new Error(message); e.isApiError = true; e.code = code; return e;
   }
 
-  function apiCall(action, payload, ownerRequired) {
-    const body = Object.assign({ action: action }, payload || {});
-    if (ownerRequired !== false) body.ownerToken = state.ownerToken;
-    return fetch(API_URL, {
-      method: 'POST',
-      headers: { 'Content-Type': 'text/plain;charset=utf-8' },
-      body: JSON.stringify(body)
-    }).then(function (res) { return res.json(); })
-      .then(function (json) {
-        if (!json || typeof json !== 'object') throw apiError('SERVER_ERROR', 'Unexpected response from the server.');
-        if (json.ok) return json.data;
-        throw apiError(json.code || 'SERVER_ERROR', json.message || 'Something went wrong.');
-      }).catch(function (err) {
-        if (err && err.isApiError) throw err;
-        throw apiError('NETWORK_ERROR', 'Could not reach the server. Please check your internet connection.');
+  function apiCall(action, payload, ownerRequired, retriesLeft) {
+  if (retriesLeft === undefined) retriesLeft = 2;
+  const body = Object.assign({ action: action }, payload || {});
+  if (ownerRequired !== false) body.ownerToken = state.ownerToken;
+
+  return fetch(API_URL, {
+    method: 'POST',
+    headers: { 'Content-Type': 'text/plain;charset=utf-8' },
+    body: JSON.stringify(body)
+  }).then(function (res) {
+    return res.json();
+  }).then(function (json) {
+    if (!json || typeof json !== 'object') {
+      throw apiError('SERVER_ERROR', 'Unexpected response from the server.');
+    }
+
+    if (json.ok) return json.data;
+
+    throw apiError(
+      json.code || 'SERVER_ERROR',
+      json.message || 'Something went wrong.'
+    );
+  }).catch(function (err) {
+    const isGlitch = !err || !err.isApiError || err.code === 'NETWORK_ERROR' || err.code === 'SERVER_ERROR';
+    if (isGlitch && retriesLeft > 0) {
+      return new Promise(function (resolve) {
+        setTimeout(resolve, 800);
+      }).then(function () {
+        return apiCall(action, payload, ownerRequired, retriesLeft - 1);
       });
-  }
+    }
+
+    if (err && err.isApiError) throw err;
+
+    throw apiError(
+      'NETWORK_ERROR',
+      'Could not reach the server. Please check your internet connection.'
+    );
+  });
+}
 
   function ownerCall(action, payload) {
     return apiCall(action, payload, true).catch(function (err) {
