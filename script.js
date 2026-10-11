@@ -1071,7 +1071,7 @@ function prefillCustomerDetails() {
     });
     if (!anyActive) stopPolling();
   }).catch(function (err) {
-    onsole.log('ERROR CAUGHT:', err); // 👈 ADD THIS
+    console.log('ERROR CAUGHT:', err); // 👈 ADD THIS
     hideTrackLoading();
     if (!handleFatalIfNeeded(err) && showErrors) {
       showToast(err.message, 'error');
