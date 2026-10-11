@@ -305,18 +305,32 @@ trackGrandTotal: $('trackGrandTotal')
     return key;
   }
 
-  /* ---------------- Cart persistence ---------------- */
+    /* ---------------- Cart persistence ---------------- */
+  // Cart kabhi bhi 2 ghante se zyada der tak "yaad" nahi rehni chahiye (menu mein apne aap kuch selected nahi dikhna chahiye).
+  const CART_EXPIRY_MS = 2 * 60 * 60 * 1000;
+
   function cartStorageKey() { return 'loc_cart_' + state.tableToken; }
   function saveCart() {
-    try { localStorage.setItem(cartStorageKey(), JSON.stringify(Array.from(state.cart.values()))); }
-    catch (e) { /* ignore */ }
+    try {
+      localStorage.setItem(cartStorageKey(), JSON.stringify({
+        savedAt: Date.now(),
+        lines: Array.from(state.cart.values())
+      }));
+    } catch (e) { /* ignore */ }
   }
   function loadCart() {
     try {
       const raw = localStorage.getItem(cartStorageKey());
       if (!raw) return;
-      const arr = JSON.parse(raw);
-      if (Array.isArray(arr)) arr.forEach(function (l) { if (l && l.itemId) state.cart.set(l.itemId, l); });
+      const parsed = JSON.parse(raw);
+      // Purane format (plain array, bina savedAt ke) ko bhi expired maan kar hata denge.
+      const savedAt = parsed && typeof parsed.savedAt === 'number' ? parsed.savedAt : 0;
+      const lines = parsed && Array.isArray(parsed.lines) ? parsed.lines : (Array.isArray(parsed) ? [] : []);
+      if (!savedAt || (Date.now() - savedAt) > CART_EXPIRY_MS) {
+        clearCartStorage();
+        return;
+      }
+      lines.forEach(function (l) { if (l && l.itemId) state.cart.set(l.itemId, l); });
     } catch (e) { /* ignore */ }
   }
   function clearCartStorage() {
@@ -925,17 +939,33 @@ function hideTrackLoading() {
   el.trackContent.hidden = false;
 }
 
+// Name/mobile sirf itni der tak yaad rehna chahiye jitni der track-order ka window hota hai (2 ghante).
+const CUSTOMER_DETAILS_EXPIRY_MS = 2 * 60 * 60 * 1000;
+
 function saveCustomerDetails(name, mobile) {
   state.customerName = name;
   state.mobile = mobile;
   try {
     localStorage.setItem('loveCoffeeCustomerName', name);
     localStorage.setItem('loveCoffeeCustomerMobile', mobile);
+    localStorage.setItem('loveCoffeeCustomerSavedAt', String(Date.now()));
   } catch (e) { /* ignore */ }
 }
 
 function loadCustomerDetails() {
   try {
+    const savedAt = Number(localStorage.getItem('loveCoffeeCustomerSavedAt') || 0);
+    const expired = !savedAt || (Date.now() - savedAt) > CUSTOMER_DETAILS_EXPIRY_MS;
+    if (expired) {
+      state.customerName = '';
+      state.mobile = '';
+      try {
+        localStorage.removeItem('loveCoffeeCustomerName');
+        localStorage.removeItem('loveCoffeeCustomerMobile');
+        localStorage.removeItem('loveCoffeeCustomerSavedAt');
+      } catch (e2) { /* ignore */ }
+      return;
+    }
     state.customerName = localStorage.getItem('loveCoffeeCustomerName') || '';
     state.mobile = localStorage.getItem('loveCoffeeCustomerMobile') || '';
   } catch (e) {
