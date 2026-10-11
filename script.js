@@ -12,8 +12,8 @@
 (function () {
   const API_URL = (window.LOC_CONFIG && window.LOC_CONFIG.API_URL) || '';
   const CUSTOMER_KEY_STORAGE = 'loc_customer_key';
-  const SEEN_NOTIF_STORAGE = 'loc_seen_notifications';
-  const NOTIF_OPT_STORAGE = 'loc_notif_opted';
+  // const SEEN_NOTIF_STORAGE = 'loc_seen_notifications';
+  // const NOTIF_OPT_STORAGE = 'loc_notif_opted';
 
   /* ---------------- DOM shortcuts ---------------- */
   const $ = (id) => document.getElementById(id);
@@ -39,9 +39,9 @@
     activeOrderBanner: $('activeOrderBanner'),
     activeOrderTitle: $('activeOrderTitle'),
     activeOrderSub: $('activeOrderSub'),
-    notifyCard: $('notifyCard'),
-    notifyText: $('notifyText'),
-    notifyBtn: $('notifyBtn'),
+    // notifyCard: $('notifyCard'),
+    // notifyText: $('notifyText'),
+    // notifyBtn: $('notifyBtn'),
     searchInput: $('searchInput'),
     searchClearBtn: $('searchClearBtn'),
     categoryBar: $('categoryBar'),
@@ -177,8 +177,8 @@ trackGrandTotal: $('trackGrandTotal')
     currentOrder: null,
     logoAvailable: false,
     pollTimer: null,
-    notifTimer: null,
-    notifOptedIn: false,
+    // notifTimer: null,
+    // notifOptedIn: false,
     customerName: '',
     mobile: '',
     sessionOrders: []
@@ -371,8 +371,7 @@ trackGrandTotal: $('trackGrandTotal')
       prefillCustomerDetails();
       showApp();
       refreshActiveOrder();
-      maybeShowNotifyCard();
-      startNotificationPolling();
+      // maybeShowNotifyCard();
     }).catch(function (err) {
       if (!handleFatalIfNeeded(err)) {
         showFatalError('Could not load the menu', err.message || 'Please try again.');
@@ -1144,101 +1143,101 @@ function prefillCustomerDetails() {
   /*     only serverTime (baseline). since set => notifications with   */
   /*     createdAt >= since (inclusive, so dedupe by notificationId).  */
   /* ================================================================ */
-  const NOTIF_SINCE_STORAGE = 'loc_notif_since';
-  const NOTIF_SEEN_STORAGE = 'loc_notif_seen_ids';
+  // const NOTIF_SINCE_STORAGE = 'loc_notif_since';
+  // const NOTIF_SEEN_STORAGE = 'loc_notif_seen_ids';
 
-  function maybeShowNotifyCard() {
-    let opted = '';
-    try { opted = localStorage.getItem(NOTIF_OPT_STORAGE) || ''; } catch (e) { /* ignore */ }
-    state.notifOptedIn = opted === 'yes';
-    el.notifyCard.hidden = state.notifOptedIn;
-  }
+  // function maybeShowNotifyCard() {
+  //   let opted = '';
+  //   try { opted = localStorage.getItem(NOTIF_OPT_STORAGE) || ''; } catch (e) { /* ignore */ }
+  //   state.notifOptedIn = opted === 'yes';
+  //   el.notifyCard.hidden = state.notifOptedIn;
+  // }
 
-  if (el.notifyBtn) {
-    el.notifyBtn.addEventListener('click', function () {
-      el.notifyBtn.disabled = true;
-      apiCall('saveNotificationSubscription', {
-        tableToken: state.tableToken,
-        customerKey: state.customerKey,
-        permission: 'granted',
-        userAgent: navigator.userAgent
-      }).then(function () {
-        state.notifOptedIn = true;
-        try { localStorage.setItem(NOTIF_OPT_STORAGE, 'yes'); } catch (e) { /* ignore */ }
-        el.notifyCard.hidden = true;
-        showToast('Notifications enabled. Keep this page open to receive offers.', 'success');
-        establishNotificationBaseline_();
-      }).catch(function (err) {
-        showToast(err.message, 'error');
-      }).finally(function () {
-        el.notifyBtn.disabled = false;
-      });
-    });
-  }
+  // if (el.notifyBtn) {
+  //   el.notifyBtn.addEventListener('click', function () {
+  //     el.notifyBtn.disabled = true;
+  //     apiCall('saveNotificationSubscription', {
+  //       tableToken: state.tableToken,
+  //       customerKey: state.customerKey,
+  //       permission: 'granted',
+  //       userAgent: navigator.userAgent
+  //     }).then(function () {
+  //       state.notifOptedIn = true;
+  //       try { localStorage.setItem(NOTIF_OPT_STORAGE, 'yes'); } catch (e) { /* ignore */ }
+  //       el.notifyCard.hidden = true;
+  //       showToast('Notifications enabled. Keep this page open to receive offers.', 'success');
+  //       establishNotificationBaseline_();
+  //     }).catch(function (err) {
+  //       showToast(err.message, 'error');
+  //     }).finally(function () {
+  //       el.notifyBtn.disabled = false;
+  //     });
+  //   });
+  // }
 
-  function getNotifSince_() {
-    try { return localStorage.getItem(NOTIF_SINCE_STORAGE) || ''; } catch (e) { return ''; }
-  }
-  function setNotifSince_(stamp) {
-    try { localStorage.setItem(NOTIF_SINCE_STORAGE, stamp); } catch (e) { /* ignore */ }
-  }
-  function getSeenNotifIds_() {
-    try { return JSON.parse(localStorage.getItem(NOTIF_SEEN_STORAGE) || '[]'); } catch (e) { return []; }
-  }
-  function addSeenNotifIds_(ids) {
-    const merged = getSeenNotifIds_().concat(ids).slice(-50);
-    try { localStorage.setItem(NOTIF_SEEN_STORAGE, JSON.stringify(merged)); } catch (e) { /* ignore */ }
-  }
+  // function getNotifSince_() {
+  //   try { return localStorage.getItem(NOTIF_SINCE_STORAGE) || ''; } catch (e) { return ''; }
+  // }
+  // function setNotifSince_(stamp) {
+  //   try { localStorage.setItem(NOTIF_SINCE_STORAGE, stamp); } catch (e) { /* ignore */ }
+  // }
+  // function getSeenNotifIds_() {
+  //   try { return JSON.parse(localStorage.getItem(NOTIF_SEEN_STORAGE) || '[]'); } catch (e) { return []; }
+  // }
+  // function addSeenNotifIds_(ids) {
+  //   const merged = getSeenNotifIds_().concat(ids).slice(-50);
+  //   try { localStorage.setItem(NOTIF_SEEN_STORAGE, JSON.stringify(merged)); } catch (e) { /* ignore */ }
+  // }
 
-  /** First call ever (or after opting in): just fetch serverTime, show nothing old. */
-  function establishNotificationBaseline_() {
-    if (getNotifSince_()) return;
-    apiCall('getCustomerNotifications', { customerKey: state.customerKey, since: '' })
-      .then(function (data) { setNotifSince_(data.serverTime); })
-      .catch(function () { /* best-effort */ });
-  }
+  // /** First call ever (or after opting in): just fetch serverTime, show nothing old. */
+  // function establishNotificationBaseline_() {
+  //   if (getNotifSince_()) return;
+  //   apiCall('getCustomerNotifications', { customerKey: state.customerKey, since: '' })
+  //     .then(function (data) { setNotifSince_(data.serverTime); })
+  //     .catch(function () { /* best-effort */ });
+  // }
 
-  function startNotificationPolling() {
-    if (!state.publicConfig) return;
-    if (state.notifOptedIn) establishNotificationBaseline_();
-    const intervalMs = Math.max((state.publicConfig.pollSeconds || 10), 10) * 3 * 1000;
-    pollNotifications();
-    state.notifTimer = setInterval(pollNotifications, intervalMs);
-  }
+  // function startNotificationPolling() {
+  //   if (!state.publicConfig) return;
+  //   if (state.notifOptedIn) establishNotificationBaseline_();
+  //   const intervalMs = Math.max((state.publicConfig.pollSeconds || 10), 10) * 3 * 1000;
+  //   pollNotifications();
+  //   state.notifTimer = setInterval(pollNotifications, intervalMs);
+  // }
 
-  function pollNotifications() {
-    if (!state.notifOptedIn) return;
-    const since = getNotifSince_();
-    if (!since) { establishNotificationBaseline_(); return; }
-    apiCall('getCustomerNotifications', { customerKey: state.customerKey, since: since })
-      .then(function (data) {
-        const seen = getSeenNotifIds_();
-        const fresh = (data.notifications || []).filter(function (n) {
-          return n && n.notificationId && seen.indexOf(n.notificationId) === -1;
-        });
-        if (fresh.length) {
-          showNotification(fresh[fresh.length - 1]);
-          addSeenNotifIds_(fresh.map(function (n) { return n.notificationId; }));
-        }
-        setNotifSince_(data.serverTime);
-      })
-      .catch(function () { /* notifications are best-effort: fail silently */ });
-  }
+  // function pollNotifications() {
+  //   if (!state.notifOptedIn) return;
+  //   const since = getNotifSince_();
+  //   if (!since) { establishNotificationBaseline_(); return; }
+  //   apiCall('getCustomerNotifications', { customerKey: state.customerKey, since: since })
+  //     .then(function (data) {
+  //       const seen = getSeenNotifIds_();
+  //       const fresh = (data.notifications || []).filter(function (n) {
+  //         return n && n.notificationId && seen.indexOf(n.notificationId) === -1;
+  //       });
+  //       if (fresh.length) {
+  //         showNotification(fresh[fresh.length - 1]);
+  //         addSeenNotifIds_(fresh.map(function (n) { return n.notificationId; }));
+  //       }
+  //       setNotifSince_(data.serverTime);
+  //     })
+  //     .catch(function () { /* notifications are best-effort: fail silently */ });
+  // }
 
-  function showNotification(n) {
-    if (n.imageUrl) { el.notifImage.src = n.imageUrl; el.notifImage.hidden = false; }
-    else { el.notifImage.hidden = true; }
-    el.notifTitle.textContent = n.title || '';
-    el.notifMessage.textContent = n.message || '';
-    if (n.buttonLink) {
-      el.notifLink.href = n.buttonLink;
-      el.notifLink.textContent = n.buttonText || 'Open';
-      el.notifLink.hidden = false;
-    } else {
-      el.notifLink.hidden = true;
-    }
-    openModal(el.notifModal);
-  }
+  // function showNotification(n) {
+  //   if (n.imageUrl) { el.notifImage.src = n.imageUrl; el.notifImage.hidden = false; }
+  //   else { el.notifImage.hidden = true; }
+  //   el.notifTitle.textContent = n.title || '';
+  //   el.notifMessage.textContent = n.message || '';
+  //   if (n.buttonLink) {
+  //     el.notifLink.href = n.buttonLink;
+  //     el.notifLink.textContent = n.buttonText || 'Open';
+  //     el.notifLink.hidden = false;
+  //   } else {
+  //     el.notifLink.hidden = true;
+  //   }
+  //   openModal(el.notifModal);
+  // }
 
   /* ================================================================ */
   /* Event binding                                                     */
@@ -1246,11 +1245,11 @@ function prefillCustomerDetails() {
   function bindEvents() {
     el.aboutBtn.addEventListener('click', function () { openModal(el.aboutModal); });
     bindModal(el.aboutModal);
-    bindModal(el.notifModal);
+    // bindModal(el.notifModal);
     document.addEventListener('keydown', function (e) {
       if (e.key === 'Escape') {
         if (!el.aboutModal.hidden) closeModal(el.aboutModal);
-        if (!el.notifModal.hidden) closeModal(el.notifModal);
+        // if (!el.notifModal.hidden) closeModal(el.notifModal);
       }
     });
 
