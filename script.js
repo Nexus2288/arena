@@ -175,6 +175,7 @@ trackGrandTotal: $('trackGrandTotal')
     vegOnly: false,
     currentView: 'menu',
     currentOrder: null,
+    logoAvailable: false,
     pollTimer: null,
     notifTimer: null,
     notifOptedIn: false,
@@ -371,7 +372,14 @@ trackGrandTotal: $('trackGrandTotal')
     document.title = c.cafeName || 'Menu';
     el.cafeName.textContent = c.cafeName || '';
     el.cafeTagline.textContent = c.tagline || '';
-    if (c.logoUrl) { el.cafeLogo.src = c.logoUrl; el.cafeLogo.hidden = false; }
+        if (c.logoUrl) {
+      el.cafeLogo.onload = function () { state.logoAvailable = true; syncLogoVisibility(); };
+      el.cafeLogo.onerror = function () { state.logoAvailable = false; syncLogoVisibility(); };
+      el.cafeLogo.src = c.logoUrl;
+    } else {
+      state.logoAvailable = false;
+      syncLogoVisibility();
+    }
     if (c.heroUrl) { el.heroImage.src = c.heroUrl; el.heroImage.hidden = false; }
     else { el.heroSection.hidden = true; }
     el.aboutName.textContent = c.cafeName || '';
@@ -397,6 +405,10 @@ trackGrandTotal: $('trackGrandTotal')
     el.formTable.textContent = 'Table ' + t.tableNumber;
   }
 
+    function syncLogoVisibility() {
+    el.cafeLogo.hidden = !(state.logoAvailable && state.currentView === 'menu');
+  }
+  
   /* ================================================================ */
   /* Menu rendering                                                    */
   /* ================================================================ */
@@ -766,6 +778,8 @@ trackGrandTotal: $('trackGrandTotal')
   el.viewCart.hidden = name !== 'cart';
   el.viewTrack.hidden = name !== 'track';
 
+syncLogoVisibility();
+    
   window.scrollTo({ top: 0, behavior: 'auto' });
 
   updateCartBar();
