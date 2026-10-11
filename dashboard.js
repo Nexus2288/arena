@@ -113,7 +113,7 @@
     infoTimezone: $('infoTimezone'),
     infoWebAppUrl: $('infoWebAppUrl'),
     infoCafeEmail: $('infoCafeEmail'),
-    infoPushConfigured: $('infoPushConfigured'),
+    // infoPushConfigured: $('infoPushConfigured'),
     infoOrderHours: $('infoOrderHours'),
 
     orderModal: $('orderModal'),
@@ -1098,7 +1098,7 @@ el.rewardTierForm.addEventListener('submit', function (e) {
       el.infoTimezone.textContent = data.info.timezone;
       el.infoWebAppUrl.textContent = data.info.customerWebAppUrl || 'Not set';
       el.infoCafeEmail.textContent = data.info.cafeEmail || 'Not set';
-      el.infoPushConfigured.textContent = data.info.pushConfigured ? 'Configured' : 'Not configured (in-app only)';
+      // el.infoPushConfigured.textContent = data.info.pushConfigured ? 'Configured' : 'Not configured (in-app only)';
       el.infoOrderHours.textContent = data.info.orderHours + ' hour(s)';
 
       el.cafeNameLabel.textContent = data.settings.CAFE_NAME || 'Love Over Coffee';
