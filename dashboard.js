@@ -365,7 +365,7 @@ rewardTierSaveBtn: $('rewardTierSaveBtn'),
     const loaders = {
       home: loadHome, orders: loadOrders, menu: loadMenu, coupons: loadCoupons, rewards: loadRewards,
       tables: loadTables, customers: loadCustomers, analytics: loadAnalytics,
-      notifications: loadNotifications, settings: loadSettings
+     settings: loadSettings
     };
     if (loaders[name]) loaders[name]();
   }
@@ -945,11 +945,11 @@ el.rewardTierForm.addEventListener('submit', function (e) {
     state.selectedCustomers.clear();
     loadCustomers();
   });
-  el.customersNotifyBtn.addEventListener('click', function () {
-    switchTab('notifications');
-    el.notifyAudience.value = 'SELECTED';
-    toggleAudienceFields();
-  });
+  // el.customersNotifyBtn.addEventListener('click', function () {
+  //   switchTab('notifications');
+  //   el.notifyAudience.value = 'SELECTED';
+  //   toggleAudienceFields();
+  // });
 
   /* ================================================================ */
   /* Analytics                                                         */
@@ -1017,68 +1017,68 @@ el.rewardTierForm.addEventListener('submit', function (e) {
   /* ================================================================ */
   /* Notifications                                                     */
   /* ================================================================ */
-  function toggleAudienceFields() {
-    const audience = el.notifyAudience.value;
-    el.notifyRecentDaysField.hidden = audience !== 'RECENT';
-    el.notifySelectedField.hidden = audience !== 'SELECTED';
-    if (audience === 'SELECTED') {
-      const count = state.selectedCustomers.size;
-      el.notifySelectedSummary.textContent = count + ' customer(s) selected.' +
-        (count === 0 ? ' Go to the Customers tab to select recipients.' : '');
-    }
-  }
-  el.notifyAudience.addEventListener('change', toggleAudienceFields);
+  // function toggleAudienceFields() {
+  //   const audience = el.notifyAudience.value;
+  //   el.notifyRecentDaysField.hidden = audience !== 'RECENT';
+  //   el.notifySelectedField.hidden = audience !== 'SELECTED';
+  //   if (audience === 'SELECTED') {
+  //     const count = state.selectedCustomers.size;
+  //     el.notifySelectedSummary.textContent = count + ' customer(s) selected.' +
+  //       (count === 0 ? ' Go to the Customers tab to select recipients.' : '');
+  //   }
+  // }
+  // el.notifyAudience.addEventListener('change', toggleAudienceFields);
 
-  function loadNotifications() {
-    toggleAudienceFields();
-    ownerCall('ownerListNotifications', {}).then(function (data) {
-      el.notificationsHistoryBody.innerHTML = '';
-      el.notificationsEmpty.hidden = data.notifications.length > 0;
-      data.notifications.forEach(function (n) {
-        const tr = cloneTpl(tpl.notificationRow);
-        role(tr, 'title').textContent = n.title;
-        role(tr, 'audience').textContent = n.audienceType;
-        role(tr, 'recipients').textContent = n.recipientCount;
-        role(tr, 'createdAt').textContent = n.createdAt;
-        el.notificationsHistoryBody.appendChild(tr);
-      });
-    }).catch(function (err) { showToast(err.message, 'error'); });
-  }
+  // function loadNotifications() {
+  //   toggleAudienceFields();
+  //   ownerCall('ownerListNotifications', {}).then(function (data) {
+  //     el.notificationsHistoryBody.innerHTML = '';
+  //     el.notificationsEmpty.hidden = data.notifications.length > 0;
+  //     data.notifications.forEach(function (n) {
+  //       const tr = cloneTpl(tpl.notificationRow);
+  //       role(tr, 'title').textContent = n.title;
+  //       role(tr, 'audience').textContent = n.audienceType;
+  //       role(tr, 'recipients').textContent = n.recipientCount;
+  //       role(tr, 'createdAt').textContent = n.createdAt;
+  //       el.notificationsHistoryBody.appendChild(tr);
+  //     });
+  //   }).catch(function (err) { showToast(err.message, 'error'); });
+  // }
 
-  el.notifyForm.addEventListener('submit', function (e) {
-    e.preventDefault();
-    el.notifyError.hidden = true;
-    const audience = el.notifyAudience.value;
-    const payload = {
-      title: el.notifyTitle.value.trim(),
-      message: el.notifyMessage.value.trim(),
-      imageUrl: el.notifyImageUrl.value.trim(),
-      buttonText: el.notifyButtonText.value.trim(),
-      buttonLink: el.notifyButtonLink.value.trim(),
-      audience: audience
-    };
-    if (audience === 'RECENT') payload.recentDays = el.notifyRecentDays.value;
-    if (audience === 'SELECTED') {
-      const ids = Array.from(state.selectedCustomers.keys());
-      if (!ids.length) {
-        el.notifyError.textContent = 'Please select at least one customer from the Customers tab.';
-        el.notifyError.hidden = false;
-        return;
-      }
-      payload.customerIds = ids;
-    }
-    setBtnLoading(el.notifySendBtn, true);
-    ownerCall('ownerSendNotification', payload)
-      .then(function (data) {
-        showToast('Notification sent to ' + data.recipientCount + ' customer(s).', 'success');
-        el.notifyForm.reset();
-        state.selectedCustomers.clear();
-        toggleAudienceFields();
-        loadNotifications();
-      })
-      .catch(function (err) { el.notifyError.textContent = err.message; el.notifyError.hidden = false; })
-      .finally(function () { setBtnLoading(el.notifySendBtn, false); });
-  });
+  // el.notifyForm.addEventListener('submit', function (e) {
+  //   e.preventDefault();
+  //   el.notifyError.hidden = true;
+  //   const audience = el.notifyAudience.value;
+  //   const payload = {
+  //     title: el.notifyTitle.value.trim(),
+  //     message: el.notifyMessage.value.trim(),
+  //     imageUrl: el.notifyImageUrl.value.trim(),
+  //     buttonText: el.notifyButtonText.value.trim(),
+  //     buttonLink: el.notifyButtonLink.value.trim(),
+  //     audience: audience
+  //   };
+  //   if (audience === 'RECENT') payload.recentDays = el.notifyRecentDays.value;
+  //   if (audience === 'SELECTED') {
+  //     const ids = Array.from(state.selectedCustomers.keys());
+  //     if (!ids.length) {
+  //       el.notifyError.textContent = 'Please select at least one customer from the Customers tab.';
+  //       el.notifyError.hidden = false;
+  //       return;
+  //     }
+  //     payload.customerIds = ids;
+  //   }
+  //   setBtnLoading(el.notifySendBtn, true);
+  //   ownerCall('ownerSendNotification', payload)
+  //     .then(function (data) {
+  //       showToast('Notification sent to ' + data.recipientCount + ' customer(s).', 'success');
+  //       el.notifyForm.reset();
+  //       state.selectedCustomers.clear();
+  //       toggleAudienceFields();
+  //       loadNotifications();
+  //     })
+  //     .catch(function (err) { el.notifyError.textContent = err.message; el.notifyError.hidden = false; })
+  //     .finally(function () { setBtnLoading(el.notifySendBtn, false); });
+  // });
 
   /* ================================================================ */
   /* Settings                                                          */
