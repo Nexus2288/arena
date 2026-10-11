@@ -60,13 +60,13 @@
     tablesBody: $('tablesBody'),
     tablesEmpty: $('tablesEmpty'),
 
-    customersSearch: $('customersSearch'),
-    customersSelectionBar: $('customersSelectionBar'),
-    customersSelectedCount: $('customersSelectedCount'),
-    customersNotifyBtn: $('customersNotifyBtn'),
-    customersClearSelectionBtn: $('customersClearSelectionBtn'),
-    customersBody: $('customersBody'),
-    customersEmpty: $('customersEmpty'),
+    // customersSearch: $('customersSearch'),
+    // customersSelectionBar: $('customersSelectionBar'),
+    // customersSelectedCount: $('customersSelectedCount'),
+    // customersNotifyBtn: $('customersNotifyBtn'),
+    // customersClearSelectionBtn: $('customersClearSelectionBtn'),
+    // customersBody: $('customersBody'),
+    // customersEmpty: $('customersEmpty'),
 
     analyticsRange: $('analyticsRange'),
     analyticsDate: $('analyticsDate'),
@@ -200,8 +200,8 @@ rewardTierSaveBtn: $('rewardTierSaveBtn'),
     menuRow: $('tplMenuRow'),
     couponRow: $('tplCouponRow'),
     tableRow: $('tplTableRow'),
-    customerRow: $('tplCustomerRow'),
-    notificationRow: $('tplNotificationRow'),
+    // customerRow: $('tplCustomerRow'),
+    // notificationRow: $('tplNotificationRow'),
     seriesRow: $('tplSeriesRow'),
     topItemRow: $('tplTopItemRow'),
     rewardTierRow: $('tplRewardTierRow'),
@@ -364,7 +364,7 @@ rewardTierSaveBtn: $('rewardTierSaveBtn'),
     qAll('.tab-panel').forEach(function (p) { p.hidden = p.id !== 'tab' + capitalize(name); });
     const loaders = {
       home: loadHome, orders: loadOrders, menu: loadMenu, coupons: loadCoupons, rewards: loadRewards,
-      tables: loadTables, customers: loadCustomers, analytics: loadAnalytics,
+      tables: loadTables, analytics: loadAnalytics,
      settings: loadSettings
     };
     if (loaders[name]) loaders[name]();
@@ -903,48 +903,48 @@ el.rewardTierForm.addEventListener('submit', function (e) {
       .finally(function () { setBtnLoading(el.tableFormSaveBtn, false); });
   });
 
-  /* ================================================================ */
-  /* Customers                                                         */
-  /* ================================================================ */
-  let customersSearchTimer = null;
-  function loadCustomers() {
-    ownerCall('ownerListCustomers', { search: el.customersSearch.value.trim() }).then(function (data) {
-      el.customersBody.innerHTML = '';
-      el.customersEmpty.hidden = data.customers.length > 0;
-      data.customers.forEach(function (c) {
-        const tr = cloneTpl(tpl.customerRow);
-        const checkbox = role(tr, 'selectBox');
-        checkbox.checked = state.selectedCustomers.has(c.customerId);
-        checkbox.addEventListener('change', function () {
-          if (checkbox.checked) state.selectedCustomers.set(c.customerId, c.customerName);
-          else state.selectedCustomers.delete(c.customerId);
-          updateSelectionBar();
-        });
-        role(tr, 'name').textContent = c.customerName;
-        role(tr, 'mobile').textContent = c.mobile;
-        role(tr, 'orders').textContent = c.orderCount;
-        role(tr, 'totalSpent').textContent = formatMoney(c.totalSpent);
-        role(tr, 'lastSeen').textContent = c.lastSeen;
-        role(tr, 'notifAllowed').textContent = c.notificationAllowed ? 'Yes' : 'No';
-        el.customersBody.appendChild(tr);
-      });
-      updateSelectionBar();
-    }).catch(function (err) { showToast(err.message, 'error'); });
-  }
-  el.customersSearch.addEventListener('input', function () {
-    clearTimeout(customersSearchTimer);
-    customersSearchTimer = setTimeout(loadCustomers, 350);
-  });
+  // /* ================================================================ */
+  // /* Customers                                                         */
+  // /* ================================================================ */
+  // let customersSearchTimer = null;
+  // function loadCustomers() {
+  //   ownerCall('ownerListCustomers', { search: el.customersSearch.value.trim() }).then(function (data) {
+  //     el.customersBody.innerHTML = '';
+  //     el.customersEmpty.hidden = data.customers.length > 0;
+  //     data.customers.forEach(function (c) {
+  //       const tr = cloneTpl(tpl.customerRow);
+  //       const checkbox = role(tr, 'selectBox');
+  //       checkbox.checked = state.selectedCustomers.has(c.customerId);
+  //       checkbox.addEventListener('change', function () {
+  //         if (checkbox.checked) state.selectedCustomers.set(c.customerId, c.customerName);
+  //         else state.selectedCustomers.delete(c.customerId);
+  //         updateSelectionBar();
+  //       });
+  //       role(tr, 'name').textContent = c.customerName;
+  //       role(tr, 'mobile').textContent = c.mobile;
+  //       role(tr, 'orders').textContent = c.orderCount;
+  //       role(tr, 'totalSpent').textContent = formatMoney(c.totalSpent);
+  //       role(tr, 'lastSeen').textContent = c.lastSeen;
+  //       role(tr, 'notifAllowed').textContent = c.notificationAllowed ? 'Yes' : 'No';
+  //       el.customersBody.appendChild(tr);
+  //     });
+  //     updateSelectionBar();
+  //   }).catch(function (err) { showToast(err.message, 'error'); });
+  // }
+  // el.customersSearch.addEventListener('input', function () {
+  //   clearTimeout(customersSearchTimer);
+  //   customersSearchTimer = setTimeout(loadCustomers, 350);
+  // });
 
-  function updateSelectionBar() {
-    const count = state.selectedCustomers.size;
-    el.customersSelectionBar.hidden = count === 0;
-    el.customersSelectedCount.textContent = count + (count === 1 ? ' selected' : ' selected');
-  }
-  el.customersClearSelectionBtn.addEventListener('click', function () {
-    state.selectedCustomers.clear();
-    loadCustomers();
-  });
+  // function updateSelectionBar() {
+  //   const count = state.selectedCustomers.size;
+  //   el.customersSelectionBar.hidden = count === 0;
+  //   el.customersSelectedCount.textContent = count + (count === 1 ? ' selected' : ' selected');
+  // }
+  // el.customersClearSelectionBtn.addEventListener('click', function () {
+  //   state.selectedCustomers.clear();
+  //   loadCustomers();
+  // });
   // el.customersNotifyBtn.addEventListener('click', function () {
   //   switchTab('notifications');
   //   el.notifyAudience.value = 'SELECTED';
